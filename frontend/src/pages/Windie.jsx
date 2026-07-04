@@ -17,10 +17,10 @@ export default function Windie() {
       <div className="flex-1 min-h-0 flex">
         <Sidebar />
         <div className="flex-1 min-w-0 relative flex">
-          <div className="flex-1 min-w-0 relative flex flex-col">
-            <ChatPanel />
-            {treeOverlayOpen && <TreeOverlay />}
-          </div>
+        <div className="flex-1 min-w-0 relative flex flex-col min-h-0">
+          <ChatPanel />
+          {treeOverlayOpen && <TreeOverlay />}
+        </div>
           <InspectorPanel />
         </div>
       </div>

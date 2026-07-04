@@ -1,0 +1,24 @@
+{
+  "summary": "Verified the primary scroll-bug fix in ChatPanel. Exercised the reported scenario at three viewports (1440x900, 1024x768, 900x900): initial load, switching across all 6 seeded conversations (conv_stream, conv_refuse, conv_audio, conv_spec, conv_ext, conv_arch, conv_stream), sending a message + streaming, and manual scroll within the chat container. In every case: window.scrollY === 0 throughout, [data-testid=chat-scroll] scrollTop === 0 immediately after switch, the [SYS] row for the newly-active conversation is the first-visible row, the topbar remains in the viewport, and after composing/sending a message the chat container auto-scrolls to the bottom while window.scrollY stays 0. Manual scroll-up within the chat container also works and does not propagate to the window. Zero console errors/warnings across the full run. All previously-passing features remain functional (sidebar switch, composer send, streaming completion).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "ChatPanel useEffect deps include activeConv?.id, activePathNodes.length, and streaming. When entering a new conversation, activePathNodes.length also changes — but the prevConvId ref guard correctly routes the effect to the scrollTop=0 branch first. Subsequent length/streaming changes within the same conv correctly pin to bottom. Logic is sound.",
+    "One micro-consideration: on the very first mount, prevConvId.current is initialized to activeConv?.id (same as current), so the effect takes the 'pin to bottom' branch on load. This matches observed behavior (initial chat opens scrolled to the latest turn). If the desired UX on cold load is 'start at top', this would need a small tweak (e.g., initialize prevConvId ref to null and treat the first render as a switch). Not required by the review request.",
+    "Windie.jsx nests two 'flex-1 min-w-0 relative flex' divs (lines 19-20). The inner one adds 'flex-col min-h-0' — functionally correct for the min-h-0 chain, but the outer wrapper is now redundant (it holds only the inner + InspectorPanel). Could collapse into a single flex container for cleanliness.",
+    "Prior review comments from iteration_1 still apply (dead lucide-react Copy import in InspectorPanel, MessageRow draft not re-syncing on external node.text change). Non-blocking."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (skipped per request)", "frontend": "100%"},
+  "seed_data_creation": "None. In-memory mock data.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Scroll bug fix confirmed at 1440x900, 1024x768, and 900x900. Assertions used: window.scrollY===0 throughout switches AND during streaming; [data-testid=chat-scroll].scrollTop===0 after every conv switch; first child of chat-scroll begins with '[SYS]'; chat container reaches bottom after streaming completes; manual scrollTop mutation within chat-scroll never bleeds to window. All 6 conversations exercised. No console errors. If UX requires a specific viewport smaller than 900x900, note that at 900x900 the center column becomes very narrow (sidebar+inspector are fixed-width) — text wraps aggressively but scroll behavior is still correct.",
+  "rca of the issue": "Original bug: ChatPanel used bottomRef.scrollIntoView({block:'end'}) on every messages/streaming change, including on conversation switch. scrollIntoView propagates to ANY ancestor scroll context (including window when the app root's overflow is not clipped on narrow viewports), so switching a conversation whose end was below the viewport caused the whole document to scroll. Fix (verified): drive scroll directly via el.scrollTop on ChatPanel's own scroll ref, and on conversation-id change explicitly set scrollTop=0. Guarded with a prevConvId ref so that a same-tick change in activePathNodes.length does not overwrite the top-reset. Result: scroll is contained to the local scroll container; window.scrollY stays 0 in all tested viewports."
+}
