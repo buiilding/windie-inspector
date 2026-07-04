@@ -1,0 +1,94 @@
+{
+  "theme": "dark_light_toggle",
+  "archetype": "Swiss & High-Contrast / Developer Tool",
+  "color_palette": {
+    "light": {
+      "background": "#FFFFFF",
+      "foreground": "#0A0A0A",
+      "surface": "#F4F4F5",
+      "surface_hover": "#E4E4E7",
+      "border": "#E5E7EB",
+      "muted": "#F9FAFB",
+      "muted_foreground": "#71717A",
+      "primary": "#0A0A0A",
+      "primary_foreground": "#FFFFFF",
+      "accent": "#F59E0B",
+      "tool_call": "#2563EB",
+      "danger": "#EF4444"
+    },
+    "dark": {
+      "background": "#09090B",
+      "foreground": "#FAFAFA",
+      "surface": "#121212",
+      "surface_hover": "#18181B",
+      "border": "#27272A",
+      "muted": "#18181B",
+      "muted_foreground": "#A1A1AA",
+      "primary": "#FAFAFA",
+      "primary_foreground": "#09090B",
+      "accent": "#F59E0B",
+      "tool_call": "#60A5FA",
+      "danger": "#F87171"
+    }
+  },
+  "typography": {
+    "fonts": {
+      "sans": "IBM Plex Sans, sans-serif",
+      "mono": "IBM Plex Mono, monospace"
+    },
+    "hierarchy": {
+      "app_title": "text-sm font-semibold tracking-tight",
+      "panel_title": "text-xs font-mono uppercase tracking-widest text-muted-foreground",
+      "body": "text-sm leading-relaxed",
+      "metadata": "text-xs font-mono text-muted-foreground",
+      "role_label": "text-xs font-mono font-bold tracking-wider"
+    }
+  },
+  "layout_and_spacing": {
+    "radius": "rounded-none sm:rounded-sm",
+    "borders": "border-[1px] border-border",
+    "sidebar_width": "w-64",
+    "inspector_width": "w-80",
+    "padding": {
+      "dense": "p-2",
+      "standard": "p-4",
+      "spacious": "p-6"
+    },
+    "chat_message": "border-b border-border py-4 px-4 hover:bg-surface/50 transition-colors",
+    "scrollbar": "scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent"
+  },
+  "components": {
+    "button": "sharp corners, monochrome or subtle background, 1px border. No heavy shadows. Hover state darkens/lightens background slightly.",
+    "input": "bg-transparent, border-border, focus:ring-1 focus:ring-foreground, font-mono placeholder-muted-foreground",
+    "message_role_indicator": "flex items-center gap-2 mb-2",
+    "tree_node": "border border-border p-2 min-w-[120px] cursor-pointer hover:border-foreground transition-all",
+    "accordion": "border-b border-border last:border-0, header font-mono text-xs uppercase"
+  },
+  "motion": {
+    "transitions": "transition-all duration-200 ease-in-out",
+    "tree_toggle": "animate-in fade-in zoom-in-95 duration-200"
+  },
+  "icons": {
+    "library": "lucide-react",
+    "style": "stroke-[1.5px] size-4"
+  },
+  "media": {
+    "images": [
+      {
+        "url": "https://images.unsplash.com/photo-1571666521805-f5e8423aba9d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2OTV8MHwxfHNlYXJjaHwxfHxhcmNoaXRlY3R1cmUlMjBkaWFncmFtfGVufDB8fHx8MTc4MzE5NTcwN3ww&ixlib=rb-4.1.0&q=85",
+        "category": "mock_data",
+        "description": "Architecture diagram uploaded by the user in the mock conversation"
+      }
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Use IBM Plex Sans for body text and IBM Plex Mono for code, IDs, tool calls, and role labels.",
+    "Do NOT use generic chat bubbles. Messages should be full-width rows stacked vertically, separated by a 1px border. Role labels (e.g., [USER], [AST], [SYS], [TOL]) should be explicitly visible at the top of each message row.",
+    "Implement a 3-column layout: 64px-wide (Wait, w-64 is 256px) left sidebar for history, flexible center for chat/tree, 80-wide (320px) right inspector for metadata.",
+    "Implement a toggleable Tree View overlay. When active, it covers the main chat area with a node-based visual representation of branches (using SVG lines or simple flexbox trees).",
+    "The Right Inspector must be dense. Include sections (accordions or stacked boxes) for 'System Prompt', 'Active Path', 'Tool Schemas', 'Reasoning Traces', and 'Assistant Metadata'.",
+    "Use high-contrast monochrome tones with minimal accents (e.g., subtle blue for tool calls, amber for warnings). No gradients or soft shadows.",
+    "Include a robust mock dataset with at least 5 conversations, one having multiple branches and image uploads, to populate the UI effectively.",
+    "All interactive elements must have `data-testid` attributes."
+  ]
+}
