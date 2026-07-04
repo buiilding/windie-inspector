@@ -4,13 +4,10 @@ import { ROLE_TOKENS } from "@/lib/mockData";
 import {
   ChevronRight,
   Pencil,
-  Check,
-  X,
   GitBranch,
   Scissors,
   Trash2,
   ChevronDown,
-  Copy,
   Route,
 } from "lucide-react";
 import { toast } from "sonner";

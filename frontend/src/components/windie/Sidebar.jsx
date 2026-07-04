@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useWindie } from "@/context/WindieContext";
-import { Plus, Search, MoreHorizontal, Trash2, Pencil, Check, X } from "lucide-react";
+import { Plus, Search, MoreHorizontal, Trash2, Pencil, Check, X as XIcon } from "lucide-react";
 import { toast } from "sonner";
 
 function ConvRow({ conv, active, onSelect, onRename, onDelete }) {
@@ -59,7 +59,7 @@ function ConvRow({ conv, active, onSelect, onRename, onDelete }) {
               }}
               className="p-1 hover:bg-surface-hover"
             >
-              <X className="size-3" />
+              <XIcon className="size-3" />
             </button>
           </div>
         ) : (
