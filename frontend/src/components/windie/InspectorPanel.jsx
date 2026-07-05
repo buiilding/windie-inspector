@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useWindie } from "@/context/WindieContext";
 import { ROLE_TOKENS } from "@/lib/mockData";
 import {
@@ -9,6 +9,7 @@ import {
   Trash2,
   ChevronDown,
   Route,
+  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -60,15 +61,27 @@ export default function InspectorPanel() {
     removeMessage,
     editMessage,
     toolSchemas,
+    approvals,
+    approveToolCall,
+    denyToolCall,
     contextPreviewOpen,
     setContextPreviewOpen,
     modelOverride,
+    availableToolSchemas,
+    addToolSchema,
   } = useWindie();
   const [editingSys, setEditingSys] = useState(false);
   const [sysDraft, setSysDraft] = useState(activeConv?.systemPrompt || "");
 
+  useEffect(() => {
+    setSysDraft(activeConv?.systemPrompt || "");
+  }, [activeConv?.id, activeConv?.systemPrompt]);
+
   const selectedNode = selectedNodeId ? activeConv?.nodes[selectedNodeId] : null;
   const onActivePath = selectedNode && activeConv.activePath.includes(selectedNodeId);
+  const attachableToolSchemas = availableToolSchemas.filter(
+    (schema) => !toolSchemas.some((attached) => attached.name === schema.name)
+  );
 
   const runtimeRequestPreview = useMemo(() => {
     if (!activeConv) return null;
@@ -280,7 +293,7 @@ export default function InspectorPanel() {
                   data-testid="inspector-action-fork"
                   onClick={() => {
                     forkFromMessage(activeConv.id, selectedNode.id);
-                    toast.message("forked from selection");
+                    toast.message("forked", { description: "new conversation created" });
                   }}
                   className="h-8 flex items-center justify-center gap-1.5 border border-border hover:bg-surface-hover font-mono text-[10px] uppercase tracking-widest"
                 >
@@ -300,7 +313,7 @@ export default function InspectorPanel() {
                   data-testid="inspector-action-truncate"
                   onClick={() => {
                     truncateAfter(activeConv.id, selectedNode.id);
-                    toast.message("truncated after selection");
+                    toast.message("truncated", { description: "descendants deleted" });
                   }}
                   className="h-8 flex items-center justify-center gap-1.5 border border-border hover:bg-surface-hover font-mono text-[10px] uppercase tracking-widest"
                 >
@@ -358,6 +371,64 @@ export default function InspectorPanel() {
           )}
         </Section>
 
+        {/* Pending approvals */}
+        <Section
+          title={`approvals · ${approvals.length}`}
+          testId="inspector-section-approvals"
+          defaultOpen={approvals.length > 0}
+        >
+          {approvals.length === 0 ? (
+            <div className="font-mono text-[11px] text-muted-foreground">
+              no pending approvals
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {approvals.map((approval) => (
+                <div key={approval.tool_call_id} className="border border-border">
+                  <div className="px-2 py-1 border-b border-border flex items-center justify-between">
+                    <span className="font-mono text-[11px] text-[hsl(var(--tool-call))]">
+                      {approval.tool_name}
+                    </span>
+                    <span className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">
+                      {approval.tool_call_id.slice(0, 10)}
+                    </span>
+                  </div>
+                  <div className="px-2 py-1.5 space-y-1">
+                    <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                      {approval.reason}
+                    </div>
+                    <pre className="font-mono text-[10px] text-muted-foreground bg-surface/60 border border-border p-2 overflow-x-auto whitespace-pre-wrap max-h-32">
+                      {formatArguments(approval.arguments)}
+                    </pre>
+                    <div className="grid grid-cols-2 gap-1 pt-1">
+                      <button
+                        data-testid={`approval-approve-${approval.tool_call_id}`}
+                        onClick={() => {
+                          approveToolCall(activeConv.id, approval.tool_call_id);
+                          toast.message("tool approved");
+                        }}
+                        className="h-7 border border-foreground bg-foreground text-background font-mono text-[10px] uppercase tracking-widest hover:opacity-90"
+                      >
+                        approve
+                      </button>
+                      <button
+                        data-testid={`approval-deny-${approval.tool_call_id}`}
+                        onClick={() => {
+                          denyToolCall(activeConv.id, approval.tool_call_id);
+                          toast.message("tool denied");
+                        }}
+                        className="h-7 border border-border text-[hsl(var(--destructive))] font-mono text-[10px] uppercase tracking-widest hover:bg-surface-hover"
+                      >
+                        deny
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Section>
+
         {/* Tool schemas */}
         <Section
           title={`tool schemas · ${toolSchemas.length}`}
@@ -365,6 +436,36 @@ export default function InspectorPanel() {
           defaultOpen={false}
         >
           <div className="space-y-2">
+            {attachableToolSchemas.length > 0 && (
+              <div className="space-y-1">
+                {attachableToolSchemas.map((schema) => (
+                  <button
+                    key={schema.name}
+                    data-testid={`tool-catalog-add-${schema.name}`}
+                    onClick={() => {
+                      addToolSchema(activeConv.id, schema);
+                      toast.message("tool schema added", { description: schema.name });
+                    }}
+                    className="w-full min-h-8 px-2 py-1.5 flex items-center justify-between gap-2 border border-border hover:bg-surface-hover text-left"
+                  >
+                    <span className="min-w-0">
+                      <span className="block font-mono text-[11px] text-[hsl(var(--tool-call))]">
+                        {schema.name}
+                      </span>
+                      <span className="block text-[10px] text-muted-foreground leading-snug">
+                        {schema.description}
+                      </span>
+                    </span>
+                    <Plus className="size-3 shrink-0 text-muted-foreground" strokeWidth={1.75} />
+                  </button>
+                ))}
+              </div>
+            )}
+            {toolSchemas.length === 0 && attachableToolSchemas.length === 0 && (
+              <div className="font-mono text-[11px] text-muted-foreground">
+                no tool schemas
+              </div>
+            )}
             {toolSchemas.map((t) => (
               <div key={t.name} className="border border-border">
                 <div className="px-2 py-1 border-b border-border flex items-center justify-between">
@@ -388,6 +489,14 @@ export default function InspectorPanel() {
       </div>
     </aside>
   );
+}
+
+function formatArguments(value) {
+  try {
+    return JSON.stringify(JSON.parse(value), null, 2);
+  } catch {
+    return value;
+  }
 }
 
 function MetaLane({ k, v, color }) {

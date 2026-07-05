@@ -230,7 +230,7 @@ export default function MessageRow({ node, index, isLast }) {
                   cancel
                 </button>
                 <span className="font-mono text-[10px] text-muted-foreground">
-                  edit creates a sibling node; original is preserved
+                  edit mutates this stored message in place
                 </span>
               </div>
             </div>
@@ -259,11 +259,17 @@ export default function MessageRow({ node, index, isLast }) {
                       className="border border-border p-1 max-w-[280px]"
                       data-testid={`msg-image-${node.id}-${i}`}
                     >
-                      <img
-                        src={img.url}
-                        alt={img.alt || "attachment"}
-                        className="max-h-40 object-cover"
-                      />
+                      {img.url ? (
+                        <img
+                          src={img.url}
+                          alt={img.alt || "attachment"}
+                          className="max-h-40 object-cover"
+                        />
+                      ) : (
+                        <div className="h-20 w-48 flex items-center justify-center bg-surface text-muted-foreground">
+                          <ImageIcon className="size-5" />
+                        </div>
+                      )}
                       <div className="mt-1 flex items-center gap-1.5 font-mono text-[10px] text-muted-foreground">
                         <ImageIcon className="size-3" />
                         <span className="truncate">{img.alt || "attachment"}</span>
@@ -286,7 +292,7 @@ export default function MessageRow({ node, index, isLast }) {
               onClick={(e) => {
                 e.stopPropagation();
                 forkFromMessage(activeConv.id, node.id);
-                toast.message("forked", { description: "new sibling branch appended" });
+                toast.message("forked", { description: "new conversation created" });
               }}
               className="p-1 border border-transparent hover:border-border hover:bg-surface-hover"
             >
@@ -294,11 +300,11 @@ export default function MessageRow({ node, index, isLast }) {
             </button>
             <button
               data-testid={`msg-action-truncate-${node.id}`}
-              title="truncate active path after this message"
+              title="delete descendants after this message"
               onClick={(e) => {
                 e.stopPropagation();
                 truncateAfter(activeConv.id, node.id);
-                toast.message("truncated", { description: "active path shortened" });
+                toast.message("truncated", { description: "descendants deleted" });
               }}
               className="p-1 border border-transparent hover:border-border hover:bg-surface-hover"
             >
@@ -306,7 +312,7 @@ export default function MessageRow({ node, index, isLast }) {
             </button>
             <button
               data-testid={`msg-action-edit-${node.id}`}
-              title="edit message (creates sibling)"
+              title="edit message"
               onClick={(e) => {
                 e.stopPropagation();
                 setEditing(true);

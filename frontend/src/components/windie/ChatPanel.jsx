@@ -4,7 +4,7 @@ import MessageRow from "@/components/windie/MessageRow";
 import Composer from "@/components/windie/Composer";
 
 export default function ChatPanel() {
-  const { activeConv, activePathNodes, streaming } = useWindie();
+  const { activeConv, activePathNodes, streaming, apiError } = useWindie();
   const scrollRef = useRef(null);
   const prevConvId = useRef(activeConv?.id);
 
@@ -25,7 +25,15 @@ export default function ChatPanel() {
     }
   }, [activeConv?.id, activePathNodes.length, streaming]);
 
-  if (!activeConv) return null;
+  if (!activeConv) {
+    return (
+      <div className="flex-1 min-w-0 flex items-center justify-center bg-background min-h-0">
+        <div className="font-mono text-xs text-muted-foreground">
+          {apiError || "no conversation selected"}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 min-w-0 flex flex-col bg-background min-h-0" data-testid="chat-panel">
@@ -36,7 +44,7 @@ export default function ChatPanel() {
             {activePathNodes.length} nodes
           </span>
           <span>·</span>
-          <span>root {activeConv.rootId.slice(0, 6)}</span>
+          <span>root {activeConv.rootId ? activeConv.rootId.slice(0, 6) : "(empty)"}</span>
           <span>·</span>
           <span>{Object.keys(activeConv.nodes).length} total</span>
         </div>

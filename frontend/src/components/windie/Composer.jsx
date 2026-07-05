@@ -6,6 +6,7 @@ import {
   X,
   ChevronDown,
   Square,
+  Play,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -13,13 +14,14 @@ export default function Composer() {
   const {
     activeConv,
     sendMessage,
+    continueConversation,
     streaming,
     modelOverride,
     setModelOverride,
     models,
   } = useWindie();
   const [text, setText] = useState("");
-  const [hasImage, setHasImage] = useState(false);
+  const [imagePath, setImagePath] = useState("");
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const taRef = useRef(null);
 
@@ -34,9 +36,14 @@ export default function Composer() {
 
   const submit = () => {
     if (!text.trim() || streaming) return;
-    sendMessage(activeConv.id, text, { modelOverride, hasImage });
+    sendMessage(activeConv.id, text, { modelOverride, imagePath });
     setText("");
-    setHasImage(false);
+    setImagePath("");
+  };
+
+  const continueQuery = () => {
+    if (!activeConv || streaming) return;
+    continueConversation(activeConv.id, { modelOverride });
   };
 
   return (
@@ -62,21 +69,28 @@ export default function Composer() {
           <div className="mt-2 flex items-center gap-2">
             <button
               data-testid="composer-attach-image"
-              onClick={() => setHasImage(!hasImage)}
+              onClick={() => {
+                if (imagePath) {
+                  setImagePath("");
+                  return;
+                }
+                const nextPath = window.prompt("Local image path");
+                if (nextPath?.trim()) setImagePath(nextPath.trim());
+              }}
               className={`h-7 px-2 flex items-center gap-1.5 border transition-colors font-mono text-[11px] uppercase tracking-widest ${
-                hasImage
+                imagePath
                   ? "border-[hsl(var(--accent))] text-[hsl(var(--accent))] bg-[hsl(var(--accent))]/10"
                   : "border-border text-muted-foreground hover:bg-surface-hover"
               }`}
             >
               <Paperclip className="size-3.5" strokeWidth={1.75} />
-              {hasImage ? "image attached" : "attach image"}
-              {hasImage && (
+              {imagePath ? "image path set" : "attach image"}
+              {imagePath && (
                 <X
                   className="size-3 ml-1"
                   onClick={(e) => {
                     e.stopPropagation();
-                    setHasImage(false);
+                    setImagePath("");
                   }}
                 />
               )}
@@ -147,30 +161,55 @@ export default function Composer() {
           </div>
         </div>
 
-        <button
-          data-testid="composer-send"
-          onClick={submit}
-          disabled={streaming || !text.trim()}
-          className={`h-10 px-4 flex items-center gap-2 border font-mono text-xs uppercase tracking-widest transition-colors ${
-            streaming
-              ? "border-[hsl(var(--accent))] text-[hsl(var(--accent))] cursor-not-allowed"
-              : text.trim()
-                ? "border-foreground bg-foreground text-background hover:opacity-90"
-                : "border-border text-muted-foreground cursor-not-allowed"
-          }`}
-        >
-          {streaming ? (
-            <>
-              <Square className="size-3 fill-current" />
+        <div className="flex items-center gap-2">
+          <button
+            data-testid="composer-continue"
+            onClick={continueQuery}
+            disabled={streaming || !activeConv}
+            className={`h-10 px-4 flex items-center gap-2 border font-mono text-xs uppercase tracking-widest transition-colors ${
+              streaming || !activeConv
+                ? "border-border text-muted-foreground cursor-not-allowed"
+                : "border-border text-foreground hover:bg-surface-hover"
+            }`}
+          >
+            {streaming ? (
+              <>
+                <Square className="size-3 fill-current" />
+                busy
+              </>
+            ) : (
+              <>
+                <Play className="size-3.5" strokeWidth={1.75} />
+                continue
+              </>
+            )}
+          </button>
+
+          <button
+            data-testid="composer-send"
+            onClick={submit}
+            disabled={streaming || !text.trim()}
+            className={`h-10 px-4 flex items-center gap-2 border font-mono text-xs uppercase tracking-widest transition-colors ${
               streaming
-            </>
-          ) : (
-            <>
-              <Send className="size-3.5" strokeWidth={1.75} />
-              query
-            </>
-          )}
-        </button>
+                ? "border-[hsl(var(--accent))] text-[hsl(var(--accent))] cursor-not-allowed"
+                : text.trim()
+                  ? "border-foreground bg-foreground text-background hover:opacity-90"
+                  : "border-border text-muted-foreground cursor-not-allowed"
+            }`}
+          >
+            {streaming ? (
+              <>
+                <Square className="size-3 fill-current" />
+                streaming
+              </>
+            ) : (
+              <>
+                <Send className="size-3.5" strokeWidth={1.75} />
+                query
+              </>
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );

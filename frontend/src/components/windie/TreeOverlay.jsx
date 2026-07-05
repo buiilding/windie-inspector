@@ -218,11 +218,11 @@ export default function TreeOverlay() {
                 }}
                 onFork={() => {
                   forkFromMessage(activeConv.id, selectedNodeId);
-                  toast.message("forked");
+                  toast.message("forked", { description: "new conversation created" });
                 }}
                 onTruncate={() => {
                   truncateAfter(activeConv.id, selectedNodeId);
-                  toast.message("truncated");
+                  toast.message("truncated", { description: "descendants deleted" });
                 }}
                 onRemove={() => {
                   removeMessage(activeConv.id, selectedNodeId);

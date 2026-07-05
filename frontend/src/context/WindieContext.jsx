@@ -1,13 +1,18 @@
 import { createContext, useContext, useMemo, useState, useCallback, useEffect } from "react";
-import { INITIAL_CONVERSATIONS, MODELS, TOOL_SCHEMAS } from "@/lib/mockData";
+import { toast } from "sonner";
+import {
+  MODELS,
+  apiRequest,
+  conversationFromInspection,
+  conversationSummaryFromApi,
+  toolCatalogFromApi,
+} from "@/lib/windieApi";
 
 const WindieCtx = createContext(null);
 
-const uid = (p = "n") => `${p}_${Math.random().toString(36).slice(2, 8)}`;
-
 export function WindieProvider({ children }) {
-  const [conversations, setConversations] = useState(INITIAL_CONVERSATIONS);
-  const [activeConvId, setActiveConvId] = useState(INITIAL_CONVERSATIONS[0].id);
+  const [conversations, setConversations] = useState([]);
+  const [activeConvId, setActiveConvId] = useState(null);
   const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [theme, setTheme] = useState("dark");
   const [treeOverlayOpen, setTreeOverlayOpen] = useState(false);
@@ -15,6 +20,10 @@ export function WindieProvider({ children }) {
   const [streaming, setStreaming] = useState(false);
   const [modelOverride, setModelOverride] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [apiError, setApiError] = useState(null);
+  const [gatewayRunning, setGatewayRunning] = useState(false);
+  const [approvals, setApprovals] = useState([]);
+  const [availableToolSchemas, setAvailableToolSchemas] = useState([]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -22,8 +31,100 @@ export function WindieProvider({ children }) {
     else root.classList.remove("dark");
   }, [theme]);
 
+  const refreshConversations = useCallback(async () => {
+    const body = await apiRequest("/api/conversations");
+    const summaries = body.conversations.map(conversationSummaryFromApi);
+
+    setConversations((prev) =>
+      summaries.map((summary) => {
+        const existing = prev.find((conv) => conv.id === summary.id);
+        return existing ? { ...summary, ...existing, messageCount: summary.messageCount } : summary;
+      })
+    );
+
+    return summaries;
+  }, []);
+
+  const refreshGateway = useCallback(async () => {
+    const body = await apiRequest("/api/status");
+    setGatewayRunning(Boolean(body.gateway_running));
+    return body.gateway_running;
+  }, []);
+
+  const refreshAvailableTools = useCallback(async () => {
+    const body = await apiRequest("/api/tools");
+    const tools = toolCatalogFromApi(body);
+    setAvailableToolSchemas(tools);
+    return tools;
+  }, []);
+
+  const loadConversation = useCallback(async (convId, options = {}) => {
+    if (!convId) return null;
+    const query = modelOverride ? `?model=${encodeURIComponent(modelOverride)}` : "";
+    const [report, approvalBody] = await Promise.all([
+      apiRequest(`/api/conversations/${convId}${query}`),
+      apiRequest(`/api/conversations/${convId}/approvals`),
+    ]);
+    let loaded = null;
+
+    setConversations((prev) => {
+      const fallback = prev.find((conv) => conv.id === convId);
+      loaded = conversationFromInspection(report, fallback);
+      const exists = prev.some((conv) => conv.id === convId);
+      if (!exists) return [loaded, ...prev];
+      return prev.map((conv) => (conv.id === convId ? loaded : conv));
+    });
+
+    if (options.selectLast !== false) {
+      const last = loaded?.activePath?.[loaded.activePath.length - 1] || loaded?.rootId || null;
+      setSelectedNodeId((current) => (current && loaded?.nodes[current] ? current : last));
+    }
+    setApprovals(approvalBody.approvals || []);
+
+    return loaded;
+  }, [modelOverride]);
+
+  useEffect(() => {
+    let cancelled = false;
+    refreshConversations()
+      .then((summaries) => {
+        if (cancelled) return;
+        setApiError(null);
+        setActiveConvId((current) => current || summaries[0]?.id || null);
+      })
+      .catch((error) => {
+        if (!cancelled) setApiError(error.message);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshConversations]);
+
+  useEffect(() => {
+    refreshGateway().catch((error) => setApiError(error.message));
+  }, [refreshGateway]);
+
+  useEffect(() => {
+    refreshAvailableTools().catch((error) => setApiError(error.message));
+  }, [refreshAvailableTools]);
+
+  useEffect(() => {
+    if (!activeConvId) return;
+    let cancelled = false;
+    loadConversation(activeConvId)
+      .then(() => {
+        if (!cancelled) setApiError(null);
+      })
+      .catch((error) => {
+        if (!cancelled) setApiError(error.message);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeConvId, loadConversation]);
+
   const activeConv = useMemo(
-    () => conversations.find((c) => c.id === activeConvId) || conversations[0],
+    () => conversations.find((c) => c.id === activeConvId) || null,
     [conversations, activeConvId]
   );
 
@@ -32,355 +133,248 @@ export function WindieProvider({ children }) {
     return activeConv.activePath.map((id) => activeConv.nodes[id]).filter(Boolean);
   }, [activeConv]);
 
-  // Ensure selectedNodeId is valid for the active conversation
-  useEffect(() => {
-    if (!activeConv) return;
-    if (selectedNodeId && activeConv.nodes[selectedNodeId]) return;
-    // default to last node in active path
-    const last = activeConv.activePath[activeConv.activePath.length - 1];
-    setSelectedNodeId(last || null);
-  }, [activeConv, selectedNodeId]);
-
-  const updateConv = useCallback((convId, updater) => {
-    setConversations((prev) =>
-      prev.map((c) => (c.id === convId ? { ...updater(c), updatedAt: new Date().toISOString() } : c))
-    );
-  }, []);
-
-  const createConversation = useCallback(() => {
-    const id = uid("conv");
-    const rootId = uid();
-    const nodes = {
-      [rootId]: {
-        id: rootId,
-        parentId: null,
-        childrenIds: [],
-        message: {
-          role: "system",
-          parts: [{ type: "text", text: "You are Windie, a local AI runtime primitive." }],
-          timestamp: new Date().toISOString(),
-        },
-      },
-    };
-    const conv = {
-      id,
-      name: "untitled conversation",
-      model: MODELS[0].id,
-      systemPrompt: "You are Windie, a local AI runtime primitive.",
-      rootId,
-      nodes,
-      activePath: [rootId],
-      updatedAt: new Date().toISOString(),
-      tags: [],
-    };
-    setConversations((prev) => [conv, ...prev]);
-    setActiveConvId(id);
-    setSelectedNodeId(rootId);
-    return id;
-  }, []);
-
-  const renameConversation = useCallback(
-    (convId, name) => updateConv(convId, (c) => ({ ...c, name })),
-    [updateConv]
+  const runMutation = useCallback(
+    async (operation, options = {}) => {
+      try {
+        const result = await operation();
+        setApiError(null);
+        if (options.refreshList) await refreshConversations();
+        if (options.reload !== false && activeConvId) await loadConversation(options.convId || activeConvId);
+        return result;
+      } catch (error) {
+        setApiError(error.message);
+        toast.error(error.message);
+        throw error;
+      }
+    },
+    [activeConvId, loadConversation, refreshConversations]
   );
 
+  const createConversation = useCallback(async () => {
+    const body = await runMutation(
+      () => apiRequest("/api/conversations", { method: "POST" }),
+      { reload: false, refreshList: true }
+    );
+    setActiveConvId(body.conversation_id);
+    setSelectedNodeId(null);
+    await loadConversation(body.conversation_id);
+    return body.conversation_id;
+  }, [loadConversation, runMutation]);
+
+  const renameConversation = useCallback(() => {
+    toast.message("rename is not a Windie primitive yet");
+  }, []);
+
   const deleteConversation = useCallback(
-    (convId) => {
-      setConversations((prev) => {
-        const next = prev.filter((c) => c.id !== convId);
-        if (activeConvId === convId && next.length > 0) setActiveConvId(next[0].id);
-        return next;
-      });
+    async (convId) => {
+      await runMutation(
+        () => apiRequest(`/api/conversations/${convId}`, { method: "DELETE" }),
+        { reload: false, refreshList: false }
+      );
+      const summaries = await refreshConversations();
+      const nextId = summaries.find((conv) => conv.id !== convId)?.id || null;
+      setActiveConvId(nextId);
+      setSelectedNodeId(null);
+      if (nextId) await loadConversation(nextId);
     },
-    [activeConvId]
+    [loadConversation, refreshConversations, runMutation]
   );
 
   const setSystemPrompt = useCallback(
     (convId, text) =>
-      updateConv(convId, (c) => {
-        const nodes = { ...c.nodes };
-        const rootNode = nodes[c.rootId];
-        if (rootNode && rootNode.message.role === "system") {
-          nodes[c.rootId] = {
-            ...rootNode,
-            message: {
-              ...rootNode.message,
-              parts: [{ type: "text", text }],
-            },
-          };
-        }
-        return { ...c, systemPrompt: text, nodes };
-      }),
-    [updateConv]
+      runMutation(() =>
+        apiRequest(`/api/conversations/${convId}/system-prompt`, {
+          method: "PATCH",
+          body: JSON.stringify({ text }),
+        })
+      ),
+    [runMutation]
+  );
+
+  const addToolSchema = useCallback(
+    (convId, toolSchema) =>
+      runMutation(() =>
+        apiRequest(`/api/conversations/${convId}/tool-schemas`, {
+          method: "POST",
+          body: JSON.stringify(toolSchema),
+        })
+      ),
+    [runMutation]
+  );
+
+  const setActivePathToLeaf = useCallback(
+    (convId, leafId) =>
+      runMutation(() =>
+        apiRequest(`/api/conversations/${convId}/activate`, {
+          method: "POST",
+          body: JSON.stringify({ message_id: leafId }),
+        })
+      ),
+    [runMutation]
   );
 
   const setActivePath = useCallback(
-    (convId, path) => updateConv(convId, (c) => ({ ...c, activePath: path })),
-    [updateConv]
-  );
-
-  // Compute an active path from a leaf up to root
-  const pathFromLeaf = useCallback((conv, leafId) => {
-    const out = [];
-    let cur = leafId;
-    while (cur) {
-      out.unshift(cur);
-      cur = conv.nodes[cur]?.parentId;
-    }
-    return out;
-  }, []);
-
-  const setActivePathToLeaf = useCallback(
-    (convId, leafId) => {
-      updateConv(convId, (c) => ({ ...c, activePath: pathFromLeaf(c, leafId) }));
+    (convId, path) => {
+      const leafId = path[path.length - 1];
+      if (!leafId) return Promise.resolve();
+      return setActivePathToLeaf(convId, leafId);
     },
-    [updateConv, pathFromLeaf]
+    [setActivePathToLeaf]
   );
 
   const truncateAfter = useCallback(
-    (convId, nodeId) => {
-      updateConv(convId, (c) => {
-        const idx = c.activePath.indexOf(nodeId);
-        if (idx < 0) return c;
-        return { ...c, activePath: c.activePath.slice(0, idx + 1) };
-      });
-    },
-    [updateConv]
+    (convId, nodeId) =>
+      runMutation(() =>
+        apiRequest(`/api/conversations/${convId}/truncate`, {
+          method: "POST",
+          body: JSON.stringify({ message_id: nodeId }),
+        })
+      ),
+    [runMutation]
   );
 
   const removeMessage = useCallback(
-    (convId, nodeId) => {
-      updateConv(convId, (c) => {
-        if (nodeId === c.rootId) return c; // don't remove root/system
-        const nodes = { ...c.nodes };
-        const node = nodes[nodeId];
-        if (!node) return c;
-        // detach from parent
-        const parent = nodes[node.parentId];
-        if (parent) {
-          nodes[node.parentId] = {
-            ...parent,
-            childrenIds: parent.childrenIds.filter((id) => id !== nodeId),
-          };
-        }
-        // remove subtree
-        const toRemove = [nodeId];
-        while (toRemove.length) {
-          const id = toRemove.pop();
-          const n = nodes[id];
-          if (!n) continue;
-          n.childrenIds.forEach((cid) => toRemove.push(cid));
-          delete nodes[id];
-        }
-        // trim active path
-        const idx = c.activePath.indexOf(nodeId);
-        const activePath =
-          idx >= 0 ? c.activePath.slice(0, idx) : c.activePath.filter((id) => nodes[id]);
-        return { ...c, nodes, activePath };
-      });
-    },
-    [updateConv]
+    (convId, nodeId) =>
+      runMutation(() =>
+        apiRequest(`/api/conversations/${convId}/messages/${nodeId}`, {
+          method: "DELETE",
+        })
+      ),
+    [runMutation]
   );
 
   const editMessage = useCallback(
-    (convId, nodeId, newText) => {
-      updateConv(convId, (c) => {
-        // edit == create sibling with new content and re-point active path
-        const node = c.nodes[nodeId];
-        if (!node) return c;
-        if (nodeId === c.rootId) {
-          // system prompt: just mutate in place
-          const nodes = { ...c.nodes };
-          nodes[nodeId] = {
-            ...node,
-            message: {
-              ...node.message,
-              parts: [{ type: "text", text: newText }],
-            },
-          };
-          return { ...c, systemPrompt: newText, nodes };
-        }
-        const parentId = node.parentId;
-        const newId = uid();
-        const nodes = { ...c.nodes };
-        nodes[newId] = {
-          id: newId,
-          parentId,
-          childrenIds: [],
-          message: {
-            ...node.message,
-            parts: [{ type: "text", text: newText }],
-            timestamp: new Date().toISOString(),
-            editedFrom: nodeId,
-          },
-        };
-        nodes[parentId] = {
-          ...nodes[parentId],
-          childrenIds: [...nodes[parentId].childrenIds, newId],
-        };
-        // repoint active path: replace nodeId with newId, drop the rest
-        const idx = c.activePath.indexOf(nodeId);
-        const activePath =
-          idx >= 0 ? [...c.activePath.slice(0, idx), newId] : c.activePath;
-        return { ...c, nodes, activePath };
-      });
-      setSelectedNodeId(null);
-    },
-    [updateConv]
+    (convId, nodeId, newText) =>
+      runMutation(() =>
+        apiRequest(`/api/conversations/${convId}/messages/${nodeId}`, {
+          method: "PATCH",
+          body: JSON.stringify({ text: newText }),
+        })
+      ),
+    [runMutation]
   );
 
   const forkFromMessage = useCallback(
-    (convId, nodeId) => {
-      // Create a new empty user node as sibling? Spec: "fork from selected message"
-      // Interpretation: create a fresh branch starting at the parent of the selected assistant/user node,
-      // so the user can re-ask. If node is user, fork means: sibling of node under same parent to re-word.
-      let newLeaf = null;
-      updateConv(convId, (c) => {
-        const node = c.nodes[nodeId];
-        if (!node) return c;
-        const parentId = node.parentId ?? c.rootId;
-        const newId = uid();
-        const nodes = { ...c.nodes };
-        nodes[newId] = {
-          id: newId,
-          parentId,
-          childrenIds: [],
-          message: {
-            role: node.message.role === "assistant" ? "user" : "user",
-            parts: [{ type: "text", text: "" }],
-            timestamp: new Date().toISOString(),
-            draft: true,
-          },
-        };
-        nodes[parentId] = {
-          ...nodes[parentId],
-          childrenIds: [...nodes[parentId].childrenIds, newId],
-        };
-        const idx = c.activePath.indexOf(parentId);
-        const activePath =
-          idx >= 0 ? [...c.activePath.slice(0, idx + 1), newId] : [...c.activePath, newId];
-        newLeaf = newId;
-        return { ...c, nodes, activePath };
-      });
-      if (newLeaf) setSelectedNodeId(newLeaf);
+    async (convId, nodeId) => {
+      const body = await runMutation(
+        () =>
+          apiRequest(`/api/conversations/${convId}/fork`, {
+            method: "POST",
+            body: JSON.stringify({ message_id: nodeId }),
+          }),
+        { reload: false, refreshList: true }
+      );
+      setActiveConvId(body.conversation_id);
+      setSelectedNodeId(null);
+      await loadConversation(body.conversation_id);
+      return body.conversation_id;
     },
-    [updateConv]
+    [loadConversation, runMutation]
   );
 
-  // Append user message + fake assistant streaming response
   const sendMessage = useCallback(
-    (convId, text, options = {}) => {
-      if (!text.trim()) return;
-      const modelId = options.modelOverride || activeConv.model;
-      const userId = uid();
-      const assistantId = uid();
-
-      updateConv(convId, (c) => {
-        const nodes = { ...c.nodes };
-        const parentId = c.activePath[c.activePath.length - 1];
-        nodes[userId] = {
-          id: userId,
-          parentId,
-          childrenIds: [assistantId],
-          message: {
-            role: "user",
-            parts: [
-              { type: "text", text },
-              ...(options.hasImage
-                ? [
-                    {
-                      type: "image",
-                      url: "https://images.unsplash.com/photo-1571666521805-f5e8423aba9d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2OTV8MHwxfHNlYXJjaHwxfHxhcmNoaXRlY3R1cmUlMjBkaWFncmFtfGVufDB8fHx8MTc4MzE5NTcwN3ww&ixlib=rb-4.1.0&q=85",
-                      alt: "attachment.png",
-                    },
-                  ]
-                : []),
-            ],
-            timestamp: new Date().toISOString(),
-          },
-        };
-        nodes[parentId] = {
-          ...nodes[parentId],
-          childrenIds: [...nodes[parentId].childrenIds, userId],
-        };
-        nodes[assistantId] = {
-          id: assistantId,
-          parentId: userId,
-          childrenIds: [],
-          message: {
-            role: "assistant",
-            model: modelId,
-            parts: [{ type: "text", text: "" }],
-            timestamp: new Date().toISOString(),
-            streaming: true,
-          },
-        };
-        return {
-          ...c,
-          nodes,
-          activePath: [...c.activePath, userId, assistantId],
-        };
-      });
-
+    async (convId, text, options = {}) => {
+      if (!text.trim() || streaming) return;
       setStreaming(true);
-      // Fake stream
-      const chunks = [
-        "Acknowledged. ",
-        "Projecting the active path into a runtime request",
-        " and querying ",
-        modelId,
-        "... ",
-        "the tree remains unchanged; ",
-        "this reply is appended as a new leaf.",
-      ];
-      let i = 0;
-      const tick = () => {
-        if (i >= chunks.length) {
-          setStreaming(false);
-          updateConv(convId, (c) => {
-            const nodes = { ...c.nodes };
-            const cur = nodes[assistantId];
-            if (!cur) return c;
-            nodes[assistantId] = {
-              ...cur,
-              message: {
-                ...cur.message,
-                streaming: false,
-                tokens: 87,
-                metadata: {
-                  reasoning:
-                    "Response synthesized from the current active path. No tools were called.",
-                },
-              },
-            };
-            return { ...c, nodes };
-          });
-          return;
-        }
-        updateConv(convId, (c) => {
-          const nodes = { ...c.nodes };
-          const cur = nodes[assistantId];
-          if (!cur) return c;
-          const currentText = cur.message.parts[0]?.text || "";
-          nodes[assistantId] = {
-            ...cur,
-            message: {
-              ...cur.message,
-              parts: [{ type: "text", text: currentText + chunks[i] }],
-            },
-          };
-          return { ...c, nodes };
+      try {
+        await apiRequest(`/api/conversations/${convId}/messages`, {
+          method: "POST",
+          body: JSON.stringify(
+            options.imagePath
+              ? {
+                  role: "user",
+                  parts: [
+                    { type: "text", text },
+                    { type: "image", path: options.imagePath },
+                  ],
+                }
+              : { role: "user", text }
+          ),
         });
-        i += 1;
-        setTimeout(tick, 220);
-      };
-      setTimeout(tick, 200);
+        await apiRequest(`/api/conversations/${convId}/query`, {
+          method: "POST",
+          body: JSON.stringify({ model: options.modelOverride || modelOverride }),
+        });
+        await loadConversation(convId);
+        setApiError(null);
+      } catch (error) {
+        setApiError(error.message);
+        toast.error(error.message);
+      } finally {
+        setStreaming(false);
+      }
     },
-    [activeConv, updateConv]
+    [loadConversation, modelOverride, streaming]
+  );
+
+  const continueConversation = useCallback(
+    async (convId, options = {}) => {
+      if (!convId || streaming) return;
+      setStreaming(true);
+      try {
+        await apiRequest(`/api/conversations/${convId}/query`, {
+          method: "POST",
+          body: JSON.stringify({ model: options.modelOverride || modelOverride }),
+        });
+        await loadConversation(convId);
+        setApiError(null);
+      } catch (error) {
+        setApiError(error.message);
+        toast.error(error.message);
+      } finally {
+        setStreaming(false);
+      }
+    },
+    [loadConversation, modelOverride, streaming]
+  );
+
+  const startGateway = useCallback(
+    () =>
+      runMutation(
+        async () => {
+          const result = await apiRequest("/api/gateway/start", { method: "POST" });
+          await refreshGateway();
+          return result;
+        },
+        { reload: false }
+      ),
+    [refreshGateway, runMutation]
+  );
+
+  const stopGateway = useCallback(
+    () =>
+      runMutation(
+        async () => {
+          const result = await apiRequest("/api/gateway/stop", { method: "POST" });
+          await refreshGateway();
+          return result;
+        },
+        { reload: false }
+      ),
+    [refreshGateway, runMutation]
+  );
+
+  const approveToolCall = useCallback(
+    (convId, toolCallId) =>
+      runMutation(() =>
+        apiRequest(`/api/conversations/${convId}/approvals/${toolCallId}/approve`, {
+          method: "POST",
+        })
+      ),
+    [runMutation]
+  );
+
+  const denyToolCall = useCallback(
+    (convId, toolCallId) =>
+      runMutation(() =>
+        apiRequest(`/api/conversations/${convId}/approvals/${toolCallId}/deny`, {
+          method: "POST",
+        })
+      ),
+    [runMutation]
   );
 
   const value = {
-    // state
     conversations,
     activeConv,
     activeConvId,
@@ -393,8 +387,11 @@ export function WindieProvider({ children }) {
     modelOverride,
     searchQuery,
     models: MODELS,
-    toolSchemas: TOOL_SCHEMAS,
-    // setters
+    toolSchemas: activeConv?.toolSchemas || [],
+    availableToolSchemas,
+    apiError,
+    gatewayRunning,
+    approvals,
     setActiveConvId,
     setSelectedNodeId,
     setTheme,
@@ -402,11 +399,11 @@ export function WindieProvider({ children }) {
     setContextPreviewOpen,
     setModelOverride,
     setSearchQuery,
-    // actions
     createConversation,
     renameConversation,
     deleteConversation,
     setSystemPrompt,
+    addToolSchema,
     setActivePath,
     setActivePathToLeaf,
     truncateAfter,
@@ -414,6 +411,14 @@ export function WindieProvider({ children }) {
     editMessage,
     forkFromMessage,
     sendMessage,
+    continueConversation,
+    startGateway,
+    stopGateway,
+    refreshGateway,
+    approveToolCall,
+    denyToolCall,
+    refreshConversations,
+    loadConversation,
   };
 
   return <WindieCtx.Provider value={value}>{children}</WindieCtx.Provider>;

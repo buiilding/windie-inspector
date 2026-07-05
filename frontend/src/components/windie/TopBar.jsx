@@ -1,8 +1,18 @@
 import { useWindie } from "@/context/WindieContext";
-import { Sun, Moon, GitBranch, Circle } from "lucide-react";
+import { Sun, Moon, GitBranch, Circle, Play, Square } from "lucide-react";
 
 export default function TopBar() {
-  const { theme, setTheme, treeOverlayOpen, setTreeOverlayOpen, activeConv, streaming } =
+  const {
+    theme,
+    setTheme,
+    treeOverlayOpen,
+    setTreeOverlayOpen,
+    activeConv,
+    streaming,
+    gatewayRunning,
+    startGateway,
+    stopGateway,
+  } =
     useWindie();
 
   return (
@@ -33,12 +43,26 @@ export default function TopBar() {
 
       <div className="flex items-center gap-1 text-muted-foreground">
         <Circle
-          className={`size-2 ${streaming ? "fill-[hsl(var(--accent))] text-[hsl(var(--accent))] animate-pulse" : "fill-muted-foreground/40 text-muted-foreground/40"}`}
+          className={`size-2 ${gatewayRunning ? "fill-[hsl(var(--accent))] text-[hsl(var(--accent))]" : "fill-muted-foreground/40 text-muted-foreground/40"}`}
         />
         <span data-testid="topbar-runtime-status" className="uppercase tracking-widest">
-          {streaming ? "streaming" : "idle"}
+          {streaming ? "querying" : gatewayRunning ? "gateway" : "offline"}
         </span>
       </div>
+
+      <button
+        data-testid="topbar-gateway-toggle"
+        onClick={() => (gatewayRunning ? stopGateway() : startGateway())}
+        className="flex items-center justify-center size-7 border border-border hover:bg-surface-hover transition-colors"
+        aria-label={gatewayRunning ? "stop gateway" : "start gateway"}
+        title={gatewayRunning ? "stop gateway" : "start gateway"}
+      >
+        {gatewayRunning ? (
+          <Square className="size-3" strokeWidth={1.75} />
+        ) : (
+          <Play className="size-3.5" strokeWidth={1.75} />
+        )}
+      </button>
 
       <button
         data-testid="topbar-toggle-tree"
