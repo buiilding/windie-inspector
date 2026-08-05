@@ -1,190 +1,286 @@
-const API_BASE = process.env.REACT_APP_WINDIE_API_URL || "http://127.0.0.1:8787";
-const API_TOKEN_STORAGE_KEY = "windie_api_token";
-
-function apiToken() {
-  const params = new URLSearchParams(window.location.search);
-  const tokenFromUrl = params.get("windie_token");
-  if (tokenFromUrl) {
-    window.localStorage.setItem(API_TOKEN_STORAGE_KEY, tokenFromUrl);
-    return tokenFromUrl;
+const API_BASE =
+  (typeof window !== "undefined" && window.__WINDIE_API_URL__) ||
+  process.env.REACT_APP_WINDIE_API_URL ||
+  "http://127.0.0.1:8787";
+function parseApiBody(text) {
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { error: text };
   }
-
-  return (
-    process.env.REACT_APP_WINDIE_API_TOKEN ||
-    window.localStorage.getItem(API_TOKEN_STORAGE_KEY) ||
-    ""
-  );
 }
 
-export const MODELS = [
-  { id: "openai/gpt-4o-mini", label: "openai/gpt-4o-mini", family: "cloud" },
-  { id: "anthropic/claude-3-5-sonnet", label: "anthropic/claude-3-5-sonnet", family: "cloud" },
-  { id: "ollama/llama3.1", label: "ollama/llama3.1", family: "local" },
-  { id: "openrouter/openai/gpt-4o-mini", label: "openrouter/openai/gpt-4o-mini", family: "cloud" },
-];
-
 export async function apiRequest(path, options = {}) {
-  const token = apiToken();
+  const { headers: optionHeaders = {}, ...fetchOptions } = options;
   const response = await fetch(`${API_BASE}${path}`, {
+    ...fetchOptions,
     headers: {
       "Content-Type": "application/json",
-      ...(token ? { "X-Windie-Api-Token": token } : {}),
-      ...(options.headers || {}),
+      ...optionHeaders,
     },
-    ...options,
   });
 
   const text = await response.text();
-  const body = text ? JSON.parse(text) : null;
+  const body = parseApiBody(text);
 
   if (!response.ok) {
-    if (response.status === 401) {
-      throw new Error(
-        "Windie API token is missing or invalid. Start windie api, then open the inspector with ?windie_token=<printed token>."
-      );
-    }
     throw new Error(body?.error || `Windie API request failed: ${response.status}`);
   }
 
   return body;
 }
 
-export function conversationSummaryFromApi(summary) {
-  return {
-    id: summary.id,
-    name: summary.title || `conversation ${summary.id.slice(0, 8)}`,
-    model: MODELS[0].id,
-    systemPrompt: "",
-    rootId: null,
-    nodes: {},
-    activePath: [],
-    updatedAt: new Date().toISOString(),
-    tags: [],
-    messageCount: summary.message_count || 0,
-    toolSchemas: [],
-  };
-}
-
-export function toolCatalogFromApi(body) {
-  return (body.tools || []).map(toolSchemaFromApi);
-}
-
-export function conversationFromInspection(report, fallback) {
-  const nodes = {};
-
-  for (const message of report.messages || []) {
-    if (!message.id) continue;
-    nodes[message.id] = {
-      id: message.id,
-      parentId: message.parent_message_id || null,
-      childrenIds: [],
-      message: messageFromApi(message, report.model),
-    };
-  }
-
-  for (const node of Object.values(nodes)) {
-    if (node.parentId && nodes[node.parentId]) {
-      nodes[node.parentId].childrenIds.push(node.id);
+export async function fetchImageAsset(conversationId, assetId) {
+  const response = await fetch(
+    `${API_BASE}/api/conversations/${encodeURIComponent(conversationId)}/images/${encodeURIComponent(assetId)}`,
+    {
     }
+  );
+
+  if (!response.ok) {
+    const text = await response.text();
+    const body = parseApiBody(text);
+    throw new Error(body?.error || `Windie image request failed: ${response.status}`);
   }
 
-  const activePath = (report.active_path || [])
-    .map((message) => message.id)
-    .filter((id) => id && nodes[id]);
-  const rootId =
-    activePath[0] ||
-    Object.values(nodes).find((node) => node.parentId === null)?.id ||
-    null;
+  return response.blob();
+}
+
+export async function listModels() {
+  const body = await apiRequest("/api/models");
+  return (body.models || []).map((model) => ({
+    id: model.id,
+    label: model.id,
+    contextLength: model.context_length ?? null,
+    maxInputTokens: model.max_input_tokens ?? null,
+    maxOutputTokens: model.max_output_tokens ?? null,
+  }));
+}
+
+export async function countConversationInputTokens(conversationId, model = null, headMessageId = null) {
+  const body = await apiRequest(
+    `/api/conversations/${encodeURIComponent(conversationId)}/input-tokens`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        model: model || null,
+        head_message_id: headMessageId || null,
+      }),
+    }
+  );
 
   return {
-    ...(fallback || {}),
-    id: report.conversation_id,
-    name: fallback?.name || `conversation ${report.conversation_id.slice(0, 8)}`,
-    model: report.model,
-    systemPrompt: report.system_prompt || "",
-    rootId,
-    nodes,
-    activePath,
-    updatedAt: new Date().toISOString(),
-    tags: fallback?.tags || [],
-    messageCount: Object.keys(nodes).length,
-    toolSchemas: (report.tool_schemas || []).map(toolSchemaFromApi),
-    modelContext: report.model_context || [],
-    latestCompaction: report.latest_compaction || null,
+    inputTokens: body?.input_tokens ?? null,
+    totalTokens: body?.total_tokens ?? null,
+    model: body?.model ?? null,
+    source: body?.source || null,
+    raw: body?.raw || null,
   };
 }
 
-function messageFromApi(message, model) {
-  const parts = partsFromApi(message);
-  return {
-    role: message.role,
-    parts,
-    metadata: metadataFromApi(message.metadata),
-    model: message.role === "assistant" ? model : undefined,
-    timestamp: new Date().toISOString(),
-  };
+export async function fetchModelParameters(model) {
+  return apiRequest(`/api/model-parameters?model=${encodeURIComponent(model)}`);
 }
 
-function partsFromApi(message) {
-  if (message.parts?.length) {
-    return message.parts.map((part) => {
-      if (part.type === "text") {
-        return { type: "text", text: part.text || "" };
-      }
-      return {
-        type: "image",
-        alt: `${part.asset_id || "image"} · ${part.mime_type || "image"} · ${part.byte_count || 0}b`,
-        assetId: part.asset_id,
-        mimeType: part.mime_type,
-        byteCount: part.byte_count,
-      };
-    });
-  }
-
-  return [{ type: "text", text: message.content || "" }];
+export async function createSession(conversationId, body = {}) {
+  return apiRequest(`/api/conversations/${encodeURIComponent(conversationId)}/sessions`, {
+    method: "POST",
+    body: JSON.stringify({
+      head_message_id: body.headMessageId || null,
+      model: body.model || null,
+      reasoning: body.reasoning || null,
+    }),
+  });
 }
 
-function metadataFromApi(metadata) {
-  if (!metadata) return null;
-
-  return {
-    toolCalls: (metadata.tool_calls || []).map((call) => ({
-      id: call.id,
-      name: call.function?.name || "",
-      arguments: parseJson(call.function?.arguments || "{}"),
-      status: "received",
-    })),
-    reasoning: metadata.reasoning || undefined,
-    refusal: metadata.refusal
-      ? { category: "provider_refusal", reason: metadata.refusal }
-      : undefined,
-    annotations: (metadata.annotations || []).map((annotation) => ({
-      label: annotation.url_citation?.title || annotation.type || "annotation",
-      note: annotation.url_citation?.url || annotation.url_citation?.title || "",
-    })),
-    audio: metadata.audio
-      ? {
-          source: metadata.audio.id,
-          durationSec: 0,
-          speakers: 1,
-          transcriptTokens: metadata.audio.transcript?.split(/\s+/).filter(Boolean).length || 0,
-        }
-      : undefined,
-  };
+export async function listSessions() {
+  const body = await apiRequest("/api/sessions");
+  return body.sessions || [];
 }
 
-function parseJson(value) {
-  try {
-    return JSON.parse(value);
-  } catch {
-    return { raw: value };
-  }
+export async function listConversationSessions(conversationId) {
+  const body = await apiRequest(
+    `/api/conversations/${encodeURIComponent(conversationId)}/sessions`
+  );
+  return body.sessions || [];
 }
 
-function toolSchemaFromApi(schema) {
-  return {
-    name: schema.name,
-    description: schema.description,
-    parameters: schema.parameters,
-  };
+export async function resolveSessionAtHead(conversationId, headMessageId = null) {
+  return apiRequest(
+    `/api/conversations/${encodeURIComponent(conversationId)}/sessions/resolve`,
+    {
+      method: "POST",
+      body: JSON.stringify({ head_message_id: headMessageId || null }),
+    }
+  );
+}
+
+export async function queryConversation(conversationId, body = {}) {
+  return apiRequest(`/api/conversations/${encodeURIComponent(conversationId)}/query`, {
+    method: "POST",
+    body: JSON.stringify({
+      head_message_id: body.headMessageId || null,
+      text: body.text || null,
+      parts: body.parts || [],
+    }),
+  });
+}
+
+export async function continueConversation(conversationId, headMessageId = null) {
+  return apiRequest(`/api/conversations/${encodeURIComponent(conversationId)}/continue`, {
+    method: "POST",
+    body: JSON.stringify({ head_message_id: headMessageId || null }),
+  });
+}
+
+export async function querySession(sessionId, parts) {
+  return apiRequest(`/api/sessions/${encodeURIComponent(sessionId)}/query`, {
+    method: "POST",
+    body: JSON.stringify({ parts }),
+  });
+}
+
+export async function continueSession(sessionId) {
+  return apiRequest(`/api/sessions/${encodeURIComponent(sessionId)}/continue`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+export async function getSession(sessionId) {
+  return apiRequest(`/api/sessions/${encodeURIComponent(sessionId)}`);
+}
+
+export async function deleteSession(sessionId) {
+  return apiRequest(`/api/sessions/${encodeURIComponent(sessionId)}`, {
+    method: "DELETE",
+  });
+}
+
+export async function stopSession(sessionId) {
+  return apiRequest(`/api/sessions/${encodeURIComponent(sessionId)}/stop`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+export async function approveSessionTool(sessionId, toolCallId) {
+  return apiRequest(
+    `/api/sessions/${encodeURIComponent(sessionId)}/approvals/${encodeURIComponent(toolCallId)}/approve`,
+    {
+      method: "POST",
+      body: JSON.stringify({}),
+    }
+  );
+}
+
+export async function denySessionTool(sessionId, toolCallId) {
+  return apiRequest(
+    `/api/sessions/${encodeURIComponent(sessionId)}/approvals/${encodeURIComponent(toolCallId)}/deny`,
+    {
+      method: "POST",
+      body: JSON.stringify({}),
+    }
+  );
+}
+
+export async function listProviderInstallations() {
+  const body = await apiRequest("/api/providers");
+  return Array.isArray(body) ? body : body.providers || [];
+}
+
+export async function listLlmProviders() {
+  const body = await apiRequest("/api/llm/providers");
+  return body.providers || [];
+}
+
+export async function listLlmProviderKeys(provider) {
+  const body = await apiRequest(
+    `/api/llm/providers/${encodeURIComponent(provider)}/keys`
+  );
+  return body.keys || [];
+}
+
+export async function ensureLlmProvider(provider) {
+  return apiRequest(`/api/llm/providers/${encodeURIComponent(provider)}/ensure`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+export async function createLlmProviderKey(provider, { name, value }) {
+  return apiRequest(`/api/llm/providers/${encodeURIComponent(provider)}/keys`, {
+    method: "POST",
+    body: JSON.stringify({
+      name,
+      value,
+      models: ["*"],
+      blacklisted_models: [],
+      weight: 1.0,
+      enabled: true,
+    }),
+  });
+}
+
+export async function deleteLlmProviderKey(provider, keyId) {
+  return apiRequest(
+    `/api/llm/providers/${encodeURIComponent(provider)}/keys/${encodeURIComponent(keyId)}`,
+    { method: "DELETE" }
+  );
+}
+
+export async function setEnvValues(assignments) {
+  return apiRequest("/api/env", {
+    method: "PUT",
+    body: JSON.stringify({ assignments }),
+  });
+}
+
+export async function setupProvider(providerId) {
+  return apiRequest(`/api/providers/${encodeURIComponent(providerId)}/setup`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+export async function enableProvider(providerId) {
+  return apiRequest(`/api/providers/${encodeURIComponent(providerId)}/enable`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+export async function disableProvider(providerId) {
+  return apiRequest(`/api/providers/${encodeURIComponent(providerId)}/disable`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+export async function repairProvider(providerId) {
+  return apiRequest(`/api/providers/${encodeURIComponent(providerId)}/repair`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+export async function uninstallProvider(providerId) {
+  return apiRequest(`/api/providers/${encodeURIComponent(providerId)}`, {
+    method: "DELETE",
+  });
+}
+
+export async function setConversationModel(conversationId, model) {
+  return apiRequest(`/api/conversations/${encodeURIComponent(conversationId)}/model`, {
+    method: "PATCH",
+    body: JSON.stringify({ model }),
+  });
+}
+
+export async function setConversationReasoning(conversationId, effort) {
+  return apiRequest(`/api/conversations/${encodeURIComponent(conversationId)}/reasoning`, {
+    method: "PATCH",
+    body: JSON.stringify({ effort: effort || null }),
+  });
 }
