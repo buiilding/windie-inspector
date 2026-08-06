@@ -12,6 +12,7 @@ import {
   PackageOpen,
   Power,
   RefreshCw,
+  Settings2,
   ShieldCheck,
   Trash2,
   Wrench,
@@ -94,8 +95,8 @@ function StatusBadge({ status }) {
 export function providerIconPresentation(providerId, compact = false) {
   if (compact) {
     return {
-      size: "size-7",
-      scale: providerId === "desktop-commander" ? 0.9 : 0.72,
+      size: "size-10",
+      scale: providerId === "desktop-commander" ? 1.05 : 0.85,
       offsetY: providerId === "desktop-commander" ? -1 : 0,
     };
   }
@@ -471,12 +472,17 @@ function SidebarExtensions({ onSelectExtension, selectedExtensionId }) {
     providerInstallations,
     providerInstallationsLoading,
     setupProvider,
+    enableProvider,
+    disableProvider,
+    repairProvider,
+    uninstallProvider,
     refreshProviderInstallations,
   } = useWindie();
   const [query, setQuery] = useState("");
   const [installedExpanded, setInstalledExpanded] = useState(true);
   const [availableExpanded, setAvailableExpanded] = useState(true);
   const [pendingProviderId, setPendingProviderId] = useState(null);
+  const [openMenuProviderId, setOpenMenuProviderId] = useState(null);
   const installed = useMemo(
     () => providerInstallations.filter((provider) => Boolean(provider.installation)),
     [providerInstallations]
@@ -499,6 +505,25 @@ function SidebarExtensions({ onSelectExtension, selectedExtensionId }) {
     try {
       await setupProvider(provider.providerId);
       toast.message("extension installed");
+    } finally {
+      setPendingProviderId(null);
+    }
+  };
+
+  const runAction = async (action, providerId) => {
+    if (action === "uninstall" && !window.confirm("Remove this extension from Windie?")) return;
+    setPendingProviderId(providerId);
+    try {
+      const actions = {
+        enable: enableProvider,
+        disable: disableProvider,
+        repair: repairProvider,
+        uninstall: uninstallProvider,
+      };
+      await actions[action](providerId);
+      const labels = { enable: "enabled", disable: "disabled", repair: "repaired", uninstall: "removed" };
+      toast.message(`extension ${labels[action]}`);
+      setOpenMenuProviderId(null);
     } finally {
       setPendingProviderId(null);
     }
@@ -557,26 +582,68 @@ function SidebarExtensions({ onSelectExtension, selectedExtensionId }) {
             {filteredInstalled.map((provider) => {
               const { providerIcon, Icon } = extensionVisual(provider.providerId, theme);
               const compactIconPresentation = providerIconPresentation(provider.providerId, true);
-              const status = providerStatus(provider);
               const state = provider.installation?.state;
-              const exceptionalStatus = state && state !== "enabled" ? status.label : null;
               return (
-                <button
+                <div
                   key={provider.providerId}
-                  type="button"
                   data-testid={`extension-row-${provider.providerId}`}
-                  onClick={() => onSelectExtension?.(provider.providerId)}
-                  className={`flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-surface-hover ${selectedExtensionId === provider.providerId ? "bg-surface" : ""}`}
+                  className={`relative flex w-full items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-surface-hover ${selectedExtensionId === provider.providerId ? "bg-surface" : ""}`}
                 >
-                  <span className="grid size-7 shrink-0 place-items-center overflow-hidden border border-border bg-surface text-foreground">
+                  <button
+                    type="button"
+                    onClick={() => onSelectExtension?.(provider.providerId)}
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                  >
+                  <span className="grid size-10 shrink-0 place-items-center overflow-hidden text-foreground">
                     {providerIcon ? <img src={providerIcon} alt="" aria-hidden="true" className={`${compactIconPresentation.size} object-contain`} style={{ transform: `translateY(${compactIconPresentation.offsetY}px) scale(${compactIconPresentation.scale})` }} /> : <Icon className="size-4" strokeWidth={1.35} />}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-sans text-[12px] text-foreground">{provider.displayName}</span>
-                    <span className="block truncate font-mono text-[9px] text-muted-foreground">{exceptionalStatus || provider.providerId}</span>
+                    <span className="block truncate font-sans text-[13px] font-medium text-foreground">{provider.displayName}</span>
+                    <span className="block truncate text-[11px] text-muted-foreground">{provider.description || "No description available."}</span>
+                    <span className="block truncate font-sans text-[11px] font-medium text-muted-foreground">{provider.author || provider.providerId}</span>
                   </span>
-                  <span className="shrink-0 text-muted-foreground" aria-hidden="true">⚙</span>
-                </button>
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`settings for ${provider.displayName}`}
+                    aria-expanded={openMenuProviderId === provider.providerId}
+                    disabled={pendingProviderId === provider.providerId}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setOpenMenuProviderId((current) => current === provider.providerId ? null : provider.providerId);
+                    }}
+                    className="grid size-7 shrink-0 place-items-center text-muted-foreground hover:bg-surface-hover hover:text-foreground disabled:opacity-50"
+                  >
+                    <Settings2 className="size-4" strokeWidth={1.75} />
+                  </button>
+                  {openMenuProviderId === provider.providerId && (
+                    <div className="absolute right-3 top-[calc(100%-0.25rem)] z-20 w-36 border border-border bg-popover py-1 shadow-md">
+                      <button
+                        type="button"
+                        onClick={() => runAction(state === "disabled" ? "enable" : "disable", provider.providerId)}
+                        className="flex w-full items-center px-3 py-2 text-left font-mono text-[10px] uppercase tracking-widest hover:bg-surface-hover"
+                      >
+                        {state === "disabled" ? "enable" : "disable"}
+                      </button>
+                      {state === "broken" && (
+                        <button
+                          type="button"
+                          onClick={() => runAction("repair", provider.providerId)}
+                          className="flex w-full items-center px-3 py-2 text-left font-mono text-[10px] uppercase tracking-widest hover:bg-surface-hover"
+                        >
+                          repair
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => runAction("uninstall", provider.providerId)}
+                        className="flex w-full items-center px-3 py-2 text-left font-mono text-[10px] uppercase tracking-widest text-[hsl(var(--destructive))] hover:bg-surface-hover"
+                      >
+                        uninstall
+                      </button>
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -608,19 +675,20 @@ function SidebarExtensions({ onSelectExtension, selectedExtensionId }) {
                 <div
                   key={provider.providerId}
                   data-testid={`extension-available-row-${provider.providerId}`}
-                  className={`flex w-full items-center gap-2 px-3 py-2 transition-colors hover:bg-surface-hover ${selectedExtensionId === provider.providerId ? "bg-surface" : ""}`}
+                  className={`flex w-full items-center gap-3 px-3 py-3 transition-colors hover:bg-surface-hover ${selectedExtensionId === provider.providerId ? "bg-surface" : ""}`}
                 >
                   <button
                     type="button"
                     onClick={() => onSelectExtension?.(provider.providerId)}
-                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
                   >
-                    <span className="grid size-7 shrink-0 place-items-center overflow-hidden border border-border bg-surface text-foreground">
+                    <span className="grid size-10 shrink-0 place-items-center overflow-hidden text-foreground">
                       {providerIcon ? <img src={providerIcon} alt="" aria-hidden="true" className={`${compactIconPresentation.size} object-contain`} style={{ transform: `translateY(${compactIconPresentation.offsetY}px) scale(${compactIconPresentation.scale})` }} /> : <Icon className="size-4" strokeWidth={1.35} />}
                     </span>
                     <span className="min-w-0">
-                      <span className="block truncate font-sans text-[12px] text-foreground">{provider.displayName}</span>
-                      <span className="block truncate font-mono text-[9px] text-muted-foreground">{provider.providerId}</span>
+                      <span className="block truncate font-sans text-[13px] font-medium text-foreground">{provider.displayName}</span>
+                      <span className="block truncate text-[11px] text-muted-foreground">{provider.description || "No description available."}</span>
+                      <span className="block truncate font-sans text-[11px] font-medium text-muted-foreground">{provider.author || provider.providerId}</span>
                     </span>
                   </button>
                   <button

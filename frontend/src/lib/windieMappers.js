@@ -34,6 +34,7 @@ export function providerInstallationsFromApi(body) {
   return providers.map((provider) => ({
     providerId: provider.manifest?.provider_id || "unknown",
     displayName: provider.manifest?.display_name || provider.manifest?.provider_id || "Unknown extension",
+    author: provider.manifest?.author || provider.manifest?.provider_id || "Unknown author",
     description: provider.manifest?.description || "",
     kind: provider.manifest?.kind || "mcp",
     transport: provider.manifest?.transport || "stdio",
