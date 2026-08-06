@@ -1,7 +1,5 @@
 import { useWindie } from "@/context/WindieContext";
-import { Sun, Moon, GitBranch, Plus } from "lucide-react";
-import ConversationPicker from "@/components/windie/ConversationPicker";
-import { toast } from "sonner";
+import { Sun, Moon } from "lucide-react";
 
 function formatTokenCount(value) {
   if (value == null) return "--";
@@ -12,21 +10,13 @@ function formatTokenCount(value) {
 
 const TOKEN_METER_TITLE = "Token count over selected model context";
 
-export default function TopBar({ treeCollapsed, onTreeToggle, overlay, onOverlayChange }) {
+export default function TopBar() {
   const {
     activeConv,
-    createConversation,
     theme,
     setTheme,
     tokenMeter,
-    approvals,
-  } =
-    useWindie();
-
-  const handleCreateConversation = async () => {
-    const id = await createConversation();
-    if (id) toast.message("new conversation created", { description: id.slice(0, 8) });
-  };
+  } = useWindie();
 
   return (
     <header
@@ -38,64 +28,12 @@ export default function TopBar({ treeCollapsed, onTreeToggle, overlay, onOverlay
         <span className="font-semibold tracking-tight text-sm font-sans">windie</span>
       </div>
 
-      <div className="h-4 w-px bg-border" />
-
-      <button
-        type="button"
-        data-testid="topbar-toggle-tree"
-        onClick={onTreeToggle}
-        title={treeCollapsed ? "show conversation tree" : "hide conversation tree"}
-        aria-label={treeCollapsed ? "show conversation tree" : "hide conversation tree"}
-        className="pointer-events-auto flex items-center justify-center size-7 border border-border bg-background hover:bg-surface-hover transition-colors"
-      >
-        <GitBranch className="size-3.5" strokeWidth={1.75} />
-      </button>
-
-      <div className="pointer-events-auto flex items-center gap-1">
-        <button
-          type="button"
-          data-testid="topbar-new-conversation"
-          onClick={handleCreateConversation}
-          aria-label="new conversation"
-          title="new conversation"
-          className="flex h-7 items-center gap-1.5 border border-border bg-background px-2 hover:bg-surface-hover transition-colors"
-        >
-          <Plus className="size-3.5" strokeWidth={1.75} />
-          <span className="font-mono text-[10px] uppercase tracking-widest">new conversation</span>
-        </button>
-        <ConversationPicker />
-      </div>
-
       <div className="flex-1" />
 
       <div
         className="flex items-center gap-1.5"
         title={TOKEN_METER_TITLE}
       >
-        {activeConv ? (
-          <>
-            <button
-              type="button"
-              data-testid="topbar-open-system"
-              onClick={() => onOverlayChange(overlay === "system" ? null : "system")}
-              className={`pointer-events-auto h-6 px-1.5 border border-border bg-background font-mono text-[10px] uppercase tracking-widest text-foreground hover:bg-surface-hover transition-colors ${overlay === "system" ? "bg-surface-hover" : ""}`}
-            >
-              system
-            </button>
-
-            <button
-              type="button"
-              data-testid="topbar-open-tools"
-              onClick={() => onOverlayChange(overlay === "tools" ? null : "tools")}
-              className={`pointer-events-auto h-6 px-1.5 border border-border bg-background font-mono text-[10px] uppercase tracking-widest text-foreground hover:bg-surface-hover transition-colors ${overlay === "tools" ? "bg-surface-hover" : ""}`}
-            >
-              tools{approvals.length > 0 ? ` · ${approvals.length}` : ""}
-            </button>
-
-            <div className="h-4 w-px bg-border mx-1" />
-          </>
-        ) : null}
-
         <span className="uppercase tracking-widest">tokens</span>
         <span className="text-foreground">
           {formatTokenCount(tokenMeter?.used)} / {formatTokenCount(tokenMeter?.max)}
