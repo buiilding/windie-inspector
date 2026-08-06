@@ -395,9 +395,9 @@ export default function Composer({ onFirstMessage }) {
           <button
             data-testid="composer-action"
             onClick={actionHandler}
-            disabled={!activeConv || (!streaming && !hasSendContent)}
+            disabled={!activeConv}
             className={`h-10 px-4 flex items-center gap-2 border font-mono text-xs uppercase tracking-widest transition-colors ${
-              !activeConv || (!streaming && !hasSendContent)
+              !activeConv
                 ? "border-border text-muted-foreground cursor-not-allowed"
                 : actionIsStop
                   ? "border-[hsl(var(--accent))] text-[hsl(var(--accent))] hover:bg-surface-hover"
