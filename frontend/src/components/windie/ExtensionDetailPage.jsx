@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { useWindie } from "@/context/WindieContext";
 import {
   extensionVisual,
+  providerOnboardingNote,
   providerRepositories,
   ProviderSecretsForm,
 } from "@/components/windie/ExtensionsPanel";
@@ -143,6 +144,7 @@ export default function ExtensionDetailPage({ providerId }) {
               <article className="min-w-0">
                 <h2 className="font-sans text-2xl font-medium tracking-tight">{provider.displayName} README</h2>
                 <p className="mt-5 text-[13px] leading-relaxed text-muted-foreground">{provider.description || "No extension description is available."}</p>
+                {providerOnboardingNote(provider.providerId) ? <p data-testid={`provider-onboarding-detail-${provider.providerId}`} className="mt-5 border border-accent/30 bg-accent/8 px-3 py-3 text-[12px] leading-relaxed">{providerOnboardingNote(provider.providerId)}</p> : null}
                 <h3 className="mt-8 border-b border-border pb-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Capabilities</h3>
                 <ul className="mt-3 space-y-2 text-[13px] leading-relaxed text-muted-foreground">
                   {toolSchemas.length > 0 ? toolSchemas.slice(0, 6).map((schema) => <li key={schema.name}>• {schema.description || schema.providerToolName || schema.name}</li>) : <li>• This extension exposes no tool schemas yet.</li>}

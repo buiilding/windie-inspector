@@ -40,7 +40,14 @@ export const providerRepositories = {
   "blender-mcp": "https://github.com/ahujasid/blender-mcp",
   brightdata: "https://github.com/brightdata/brightdata-mcp",
   "basic-memory": "https://github.com/basicmachines-co/basic-memory",
+  "chrome-devtools": "https://github.com/ChromeDevTools/chrome-devtools-mcp",
 };
+
+export function providerOnboardingNote(providerId) {
+  if (providerId !== "chrome-devtools") return null;
+
+  return "Windie opens a separate persistent Chrome profile. Log into websites once, and Windie will reuse that browser session in future runs. Your normal Chrome profile and open tabs are not used.";
+}
 
 export function providerStatus(provider, toolStatus) {
   const state = provider.installation?.state;
@@ -254,6 +261,15 @@ function ProviderCard({ provider, toolStatus, pending, theme, onAction }) {
 
       <div className="flex flex-1 flex-col gap-4 p-4">
         <p className="text-[12px] leading-relaxed text-muted-foreground">{provider.description}</p>
+
+        {providerOnboardingNote(provider.providerId) ? (
+          <div
+            data-testid={`provider-onboarding-${provider.providerId}`}
+            className="border border-accent/30 bg-accent/8 px-3 py-2 text-[11px] leading-relaxed text-foreground"
+          >
+            {providerOnboardingNote(provider.providerId)}
+          </div>
+        ) : null}
 
         {provider.installation?.nextAction ? (
           <div className="border border-accent/30 bg-accent/8 px-3 py-2 text-[11px] leading-relaxed text-foreground">
