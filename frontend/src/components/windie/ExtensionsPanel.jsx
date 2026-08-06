@@ -3,12 +3,15 @@ import {
   AlertTriangle,
   Check,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   Download,
   ExternalLink,
   KeyRound,
   Loader2,
   PackageOpen,
   Power,
+  RefreshCw,
   ShieldCheck,
   Trash2,
   Wrench,
@@ -30,7 +33,7 @@ const providerIcons = {
   brightdata: brightDataLogo,
 };
 
-const providerRepositories = {
+export const providerRepositories = {
   "cua-driver": "https://github.com/trycua/cua",
   "desktop-commander": "https://github.com/wonderwhy-er/DesktopCommanderMCP",
   "blender-mcp": "https://github.com/ahujasid/blender-mcp",
@@ -38,7 +41,7 @@ const providerRepositories = {
   "basic-memory": "https://github.com/basicmachines-co/basic-memory",
 };
 
-function providerStatus(provider, toolStatus) {
+export function providerStatus(provider, toolStatus) {
   const state = provider.installation?.state;
   const readiness = provider.installation?.readiness;
   if (!state) {
@@ -88,7 +91,14 @@ function StatusBadge({ status }) {
   );
 }
 
-function providerIconPresentation(providerId) {
+export function providerIconPresentation(providerId, compact = false) {
+  if (compact) {
+    return {
+      size: "size-7",
+      scale: providerId === "desktop-commander" ? 0.9 : 0.72,
+      offsetY: providerId === "desktop-commander" ? -1 : 0,
+    };
+  }
   if (providerId === "desktop-commander" || providerId === "basic-memory") {
     return { size: "size-10", scale: 1.35 };
   }
@@ -96,7 +106,20 @@ function providerIconPresentation(providerId) {
   return { size: "size-7", scale: 1 };
 }
 
-function ProviderSecretsForm({ providerId, secrets, disabled }) {
+export function extensionVisual(providerId, theme) {
+  const providerIcon = providerId === "cua-driver"
+    ? theme === "dark" ? cuaDarkLogo : cuaLightLogo
+    : providerId === "basic-memory"
+      ? theme === "dark" ? basicMemoryDarkLogo : basicMemoryLightLogo
+      : providerIcons[providerId];
+  return {
+    providerIcon,
+    Icon: providerIcon || ShieldCheck,
+    iconPresentation: providerIconPresentation(providerId),
+  };
+}
+
+export function ProviderSecretsForm({ providerId, secrets, disabled }) {
   const [values, setValues] = useState(() =>
     Object.fromEntries(secrets.map((secret) => [secret.env_key, ""]))
   );
@@ -340,7 +363,7 @@ function ProviderCard({ provider, toolStatus, pending, theme, onAction }) {
   );
 }
 
-export default function ExtensionsPanel() {
+function FullExtensionsPanel() {
   const {
     theme,
     providerInstallations,
@@ -440,4 +463,188 @@ export default function ExtensionsPanel() {
       </div>
     </div>
   );
+}
+
+function SidebarExtensions({ onSelectExtension, selectedExtensionId }) {
+  const {
+    theme,
+    providerInstallations,
+    providerInstallationsLoading,
+    setupProvider,
+    refreshProviderInstallations,
+  } = useWindie();
+  const [query, setQuery] = useState("");
+  const [installedExpanded, setInstalledExpanded] = useState(true);
+  const [availableExpanded, setAvailableExpanded] = useState(true);
+  const [pendingProviderId, setPendingProviderId] = useState(null);
+  const installed = useMemo(
+    () => providerInstallations.filter((provider) => Boolean(provider.installation)),
+    [providerInstallations]
+  );
+  const available = useMemo(
+    () => providerInstallations.filter((provider) => !provider.installation),
+    [providerInstallations]
+  );
+  const matchesQuery = (provider) => {
+    const value = query.trim().toLowerCase();
+    return !value || [provider.displayName, provider.providerId, provider.description]
+      .filter(Boolean)
+      .some((field) => field.toLowerCase().includes(value));
+  };
+  const filteredInstalled = installed.filter(matchesQuery);
+  const filteredAvailable = available.filter(matchesQuery);
+
+  const install = async (provider) => {
+    setPendingProviderId(provider.providerId);
+    try {
+      await setupProvider(provider.providerId);
+      toast.message("extension installed");
+    } finally {
+      setPendingProviderId(null);
+    }
+  };
+
+  return (
+    <div className="relative flex h-full min-h-0 flex-col bg-background">
+      <div className="flex h-11 shrink-0 items-center justify-between border-b border-border px-3">
+        <span className="font-sans text-base font-medium tracking-tight">Extensions</span>
+        <button
+          type="button"
+          data-testid="extensions-refresh"
+          aria-label="refresh extensions"
+          title="refresh extensions"
+          onClick={() => refreshProviderInstallations()}
+          className="grid size-7 place-items-center text-muted-foreground hover:bg-surface-hover hover:text-foreground"
+        >
+          <RefreshCw className="size-3.5" strokeWidth={1.75} />
+        </button>
+      </div>
+
+      <div className="flex h-9 shrink-0 items-center gap-1.5 border-b border-border px-3">
+        <input
+          data-testid="extensions-search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search extensions"
+          className="min-w-0 flex-1 bg-transparent font-mono text-[11px] outline-none placeholder:text-muted-foreground/60"
+        />
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto windie-scroll">
+        <button
+          type="button"
+          aria-expanded={installedExpanded}
+          onClick={() => setInstalledExpanded((current) => !current)}
+          className="flex w-full items-center justify-between border-b border-border px-3 py-3 text-left hover:bg-surface-hover"
+        >
+          <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+            <span>Installed</span>
+            <span className="grid size-5 place-items-center rounded-full bg-surface text-[9px] text-foreground">{installed.length}</span>
+          </span>
+          {installedExpanded ? <ChevronDown className="size-3.5 text-muted-foreground" /> : <ChevronRight className="size-3.5 text-muted-foreground" />}
+        </button>
+        {installedExpanded && providerInstallationsLoading && installed.length === 0 ? (
+          <div className="flex items-center justify-center gap-2 px-3 py-8 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+            <Loader2 className="size-3 animate-spin" />
+            loading extensions
+          </div>
+        ) : installedExpanded && filteredInstalled.length === 0 ? (
+          <div className="px-3 py-4 font-mono text-[10px] text-muted-foreground">
+            {query ? "no installed extensions match" : "no installed extensions"}
+          </div>
+        ) : installedExpanded ? (
+          <div className="divide-y divide-border border-y border-border">
+            {filteredInstalled.map((provider) => {
+              const { providerIcon, Icon } = extensionVisual(provider.providerId, theme);
+              const compactIconPresentation = providerIconPresentation(provider.providerId, true);
+              const status = providerStatus(provider);
+              const state = provider.installation?.state;
+              const exceptionalStatus = state && state !== "enabled" ? status.label : null;
+              return (
+                <button
+                  key={provider.providerId}
+                  type="button"
+                  data-testid={`extension-row-${provider.providerId}`}
+                  onClick={() => onSelectExtension?.(provider.providerId)}
+                  className={`flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-surface-hover ${selectedExtensionId === provider.providerId ? "bg-surface" : ""}`}
+                >
+                  <span className="grid size-7 shrink-0 place-items-center overflow-hidden border border-border bg-surface text-foreground">
+                    {providerIcon ? <img src={providerIcon} alt="" aria-hidden="true" className={`${compactIconPresentation.size} object-contain`} style={{ transform: `translateY(${compactIconPresentation.offsetY}px) scale(${compactIconPresentation.scale})` }} /> : <Icon className="size-4" strokeWidth={1.35} />}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-sans text-[12px] text-foreground">{provider.displayName}</span>
+                    <span className="block truncate font-mono text-[9px] text-muted-foreground">{exceptionalStatus || provider.providerId}</span>
+                  </span>
+                  <span className="shrink-0 text-muted-foreground" aria-hidden="true">⚙</span>
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+
+        <button
+          type="button"
+          aria-expanded={availableExpanded}
+          onClick={() => setAvailableExpanded((current) => !current)}
+          className="flex w-full items-center justify-between border-b border-border px-3 py-3 text-left hover:bg-surface-hover"
+        >
+          <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+            <span>Available</span>
+            <span className="grid size-5 place-items-center rounded-full bg-surface text-[9px] text-foreground">{available.length}</span>
+          </span>
+          {availableExpanded ? <ChevronDown className="size-3.5 text-muted-foreground" /> : <ChevronRight className="size-3.5 text-muted-foreground" />}
+        </button>
+        {availableExpanded && (filteredAvailable.length === 0 ? (
+          <div className="px-3 py-4 font-mono text-[10px] text-muted-foreground">
+            {query ? "no available extensions match" : "no available extensions"}
+          </div>
+        ) : (
+          <div className="divide-y divide-border border-b border-border">
+            {filteredAvailable.map((provider) => {
+              const { providerIcon, Icon } = extensionVisual(provider.providerId, theme);
+              const compactIconPresentation = providerIconPresentation(provider.providerId, true);
+              const setupAvailable = (provider.kind || "mcp").toLowerCase() === "mcp";
+              return (
+                <div
+                  key={provider.providerId}
+                  data-testid={`extension-available-row-${provider.providerId}`}
+                  className={`flex w-full items-center gap-2 px-3 py-2 transition-colors hover:bg-surface-hover ${selectedExtensionId === provider.providerId ? "bg-surface" : ""}`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => onSelectExtension?.(provider.providerId)}
+                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                  >
+                    <span className="grid size-7 shrink-0 place-items-center overflow-hidden border border-border bg-surface text-foreground">
+                      {providerIcon ? <img src={providerIcon} alt="" aria-hidden="true" className={`${compactIconPresentation.size} object-contain`} style={{ transform: `translateY(${compactIconPresentation.offsetY}px) scale(${compactIconPresentation.scale})` }} /> : <Icon className="size-4" strokeWidth={1.35} />}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate font-sans text-[12px] text-foreground">{provider.displayName}</span>
+                      <span className="block truncate font-mono text-[9px] text-muted-foreground">{provider.providerId}</span>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!setupAvailable || pendingProviderId === provider.providerId}
+                    onClick={() => install(provider)}
+                    className="inline-flex h-7 shrink-0 items-center justify-center gap-1 border border-foreground px-2.5 font-mono text-[9px] uppercase tracking-widest text-foreground hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {pendingProviderId === provider.providerId ? <Loader2 className="size-3 animate-spin" /> : <Download className="size-3" />}
+                    {setupAvailable ? "install" : "unavailable"}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default function ExtensionsPanel({ variant = "full", onSelectExtension, selectedExtensionId }) {
+  if (variant === "sidebar") {
+    return <SidebarExtensions onSelectExtension={onSelectExtension} selectedExtensionId={selectedExtensionId} />;
+  }
+  return <FullExtensionsPanel />;
 }

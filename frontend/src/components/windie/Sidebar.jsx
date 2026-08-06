@@ -17,7 +17,7 @@ function View({ active, children, label }) {
   );
 }
 
-export default function Sidebar({ activeView, sidebarWidth, onResizeStart }) {
+export default function Sidebar({ activeView, sidebarWidth, onResizeStart, onSelectExtension, selectedExtensionId }) {
   const { activeConv } = useWindie();
 
   return (
@@ -39,9 +39,11 @@ export default function Sidebar({ activeView, sidebarWidth, onResizeStart }) {
         )}
       </View>
       <View active={activeView === "extensions"} label="Extensions">
-        <div className="h-full overflow-y-auto windie-scroll">
-          <ExtensionsPanel />
-        </div>
+        <ExtensionsPanel
+          variant="sidebar"
+          onSelectExtension={onSelectExtension}
+          selectedExtensionId={selectedExtensionId}
+        />
       </View>
       <View active={activeView === "llms"} label="LLMs">
         <div className="h-full overflow-y-auto windie-scroll">

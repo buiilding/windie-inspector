@@ -3,6 +3,7 @@ import TopBar from "@/components/windie/TopBar";
 import ActivityBar from "@/components/windie/ActivityBar";
 import Sidebar from "@/components/windie/Sidebar";
 import ChatPanel from "@/components/windie/ChatPanel";
+import ExtensionDetailPage from "@/components/windie/ExtensionDetailPage";
 import InspectorPanel from "@/components/windie/InspectorPanel";
 import { useWindie } from "@/context/WindieContext";
 import { listLlmProviderKeys, listLlmProviders } from "@/lib/windieApi";
@@ -10,6 +11,7 @@ import { listLlmProviderKeys, listLlmProviders } from "@/lib/windieApi";
 export default function Windie() {
   const [overlay, setOverlay] = useState(null);
   const [activeSidebarView, setActiveSidebarView] = useState("conversations");
+  const [selectedExtensionId, setSelectedExtensionId] = useState(null);
   const onboardingCheckedRef = useRef(false);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     try {
@@ -107,10 +109,16 @@ export default function Windie() {
           activeView={activeSidebarView}
           sidebarWidth={sidebarWidth}
           onResizeStart={startSidebarResize}
+          onSelectExtension={setSelectedExtensionId}
+          selectedExtensionId={selectedExtensionId}
         />
         <div className="flex-1 min-w-0 relative flex">
           <div className="flex-1 min-w-0 relative flex flex-col min-h-0">
-            <ChatPanel />
+            {activeSidebarView === "extensions" && selectedExtensionId ? (
+              <ExtensionDetailPage providerId={selectedExtensionId} />
+            ) : (
+              <ChatPanel />
+            )}
           </div>
           {overlay && <InspectorPanel mode={overlay} onClose={() => setOverlay(null)} />}
         </div>
