@@ -12,7 +12,7 @@ import {
   PackageOpen,
   Power,
   RefreshCw,
-  Settings2,
+  Settings,
   ShieldCheck,
   Trash2,
   Wrench,
@@ -587,12 +587,12 @@ function SidebarExtensions({ onSelectExtension, selectedExtensionId }) {
                 <div
                   key={provider.providerId}
                   data-testid={`extension-row-${provider.providerId}`}
-                  className={`relative flex w-full items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-surface-hover ${selectedExtensionId === provider.providerId ? "bg-surface" : ""}`}
+                  className={`relative flex w-full items-start gap-3 px-3 py-3 text-left transition-colors hover:bg-surface-hover ${selectedExtensionId === provider.providerId ? "bg-surface" : ""}`}
                 >
                   <button
                     type="button"
                     onClick={() => onSelectExtension?.(provider.providerId)}
-                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                    className="flex min-w-0 flex-1 items-start gap-3 pr-8 text-left"
                   >
                   <span className="grid size-10 shrink-0 place-items-center overflow-hidden text-foreground">
                     {providerIcon ? <img src={providerIcon} alt="" aria-hidden="true" className={`${compactIconPresentation.size} object-contain`} style={{ transform: `translateY(${compactIconPresentation.offsetY}px) scale(${compactIconPresentation.scale})` }} /> : <Icon className="size-4" strokeWidth={1.35} />}
@@ -612,9 +612,9 @@ function SidebarExtensions({ onSelectExtension, selectedExtensionId }) {
                       event.stopPropagation();
                       setOpenMenuProviderId((current) => current === provider.providerId ? null : provider.providerId);
                     }}
-                    className="grid size-7 shrink-0 place-items-center text-muted-foreground hover:bg-surface-hover hover:text-foreground disabled:opacity-50"
+                    className="absolute bottom-1.5 right-3 grid size-6 place-items-center text-muted-foreground hover:bg-surface-hover hover:text-foreground disabled:opacity-50"
                   >
-                    <Settings2 className="size-4" strokeWidth={1.75} />
+                    <Settings className="size-3.5" strokeWidth={1.75} />
                   </button>
                   {openMenuProviderId === provider.providerId && (
                     <div className="absolute right-3 top-[calc(100%-0.25rem)] z-20 w-36 border border-border bg-popover py-1 shadow-md">
