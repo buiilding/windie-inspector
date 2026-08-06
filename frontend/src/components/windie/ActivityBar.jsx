@@ -1,5 +1,5 @@
 import {
-  BrainCircuit,
+  Brain,
   GitBranch,
   MessageSquare,
   Puzzle,
@@ -10,7 +10,7 @@ const primaryViews = [
   { id: "conversations", label: "Conversations", Icon: MessageSquare },
   { id: "tree", label: "Conversation tree", Icon: GitBranch },
   { id: "extensions", label: "Extensions", Icon: Puzzle },
-  { id: "llms", label: "LLMs", Icon: BrainCircuit },
+  { id: "llms", label: "LLMs", Icon: Brain },
 ];
 
 export default function ActivityBar({ activeView, onViewChange }) {
