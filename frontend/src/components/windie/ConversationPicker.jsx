@@ -16,7 +16,7 @@ function conversationLabel(conv) {
   return conv.name || `conversation ${shortId(conv.id)}`;
 }
 
-export default function ConversationPicker({ variant = "topbar", dropUp = false }) {
+export default function ConversationPicker({ variant = "topbar", dropUp = false, onSelectConversation }) {
   const inSidebar = variant === "sidebar";
   const {
     conversations,
@@ -72,6 +72,7 @@ export default function ConversationPicker({ variant = "topbar", dropUp = false 
   const handleCreate = async () => {
     const id = await createConversation();
     if (id) {
+      onSelectConversation?.();
       toast.message("new conversation created", { description: shortId(id) });
       setOpen(false);
     }
@@ -79,6 +80,7 @@ export default function ConversationPicker({ variant = "topbar", dropUp = false 
 
   const handleSelect = (id) => {
     selectConversation(id);
+    onSelectConversation?.();
     if (!inSidebar) setOpen(false);
   };
 

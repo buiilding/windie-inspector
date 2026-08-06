@@ -110,11 +110,12 @@ export default function Windie() {
           sidebarWidth={sidebarWidth}
           onResizeStart={startSidebarResize}
           onSelectExtension={setSelectedExtensionId}
+          onSelectConversation={() => setSelectedExtensionId(null)}
           selectedExtensionId={selectedExtensionId}
         />
         <div className="flex-1 min-w-0 relative flex">
           <div className="flex-1 min-w-0 relative flex flex-col min-h-0">
-            {activeSidebarView === "extensions" && selectedExtensionId ? (
+            {selectedExtensionId ? (
               <ExtensionDetailPage providerId={selectedExtensionId} />
             ) : (
               <ChatPanel />
