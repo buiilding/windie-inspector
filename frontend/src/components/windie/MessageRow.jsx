@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { ThinkingOrb } from "thinking-orbs";
 import { useWindie } from "@/context/WindieContext";
 import { fetchImageAsset } from "@/lib/windieApi";
 import { ROLE_TOKENS } from "@/lib/mockData";
@@ -38,16 +39,29 @@ function ReasoningLane({ reasoning, placeholder = false }) {
   const [open, setOpen] = useState(false);
   if (!reasoning && !placeholder) return null;
   const canExpand = Boolean(reasoning);
+  const orbState = placeholder ? "solving" : "breathing";
   return (
     <div className="mb-3">
       <button
         type="button"
         aria-expanded={canExpand && open}
+        aria-label={
+          canExpand ? (open ? "Hide reasoning" : "Show reasoning") : "Thinking"
+        }
         onClick={() => {
           if (canExpand) setOpen((value) => !value);
         }}
-        className="group flex items-center gap-1 font-mono text-[10px] uppercase tracking-widest text-[hsl(var(--reasoning))] hover:text-foreground transition-colors"
+        className="group flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-[hsl(var(--reasoning))] hover:text-foreground transition-colors"
       >
+        <ThinkingOrb
+          state={orbState}
+          size={20}
+          theme="auto"
+          paused={!placeholder}
+          aria-hidden="true"
+          data-testid="thinking-orb"
+          className="shrink-0"
+        />
         <span>thinking</span>
         <ChevronDown className="size-3 opacity-0 group-hover:opacity-100" strokeWidth={1.75} />
       </button>
