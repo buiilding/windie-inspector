@@ -3,6 +3,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ThinkingOrb } from "thinking-orbs";
 import { useWindie } from "@/context/WindieContext";
+import TextShimmer from "@/components/ui/text-shimmer";
 import { fetchImageAsset } from "@/lib/windieApi";
 import { ROLE_TOKENS } from "@/lib/mockData";
 import {
@@ -51,7 +52,7 @@ function ReasoningLane({ reasoning, placeholder = false }) {
         onClick={() => {
           if (canExpand) setOpen((value) => !value);
         }}
-        className="group flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-[hsl(var(--reasoning))] hover:text-foreground transition-colors"
+        className="group flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors"
       >
         <ThinkingOrb
           state={orbState}
@@ -62,7 +63,11 @@ function ReasoningLane({ reasoning, placeholder = false }) {
           data-testid="thinking-orb"
           className="shrink-0"
         />
-        <span>thinking</span>
+        {placeholder ? (
+          <TextShimmer data-testid="thinking-shimmer">thinking</TextShimmer>
+        ) : (
+          <span>thinking</span>
+        )}
         <ChevronDown className="size-3 opacity-0 group-hover:opacity-100" strokeWidth={1.75} />
       </button>
       <div className={`windie-reasoning-content ${canExpand && open ? "open" : ""}`}>
