@@ -1,28 +1,49 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import TopBar from "@/components/windie/TopBar";
+import ActivityBar from "@/components/windie/ActivityBar";
 import Sidebar from "@/components/windie/Sidebar";
 import ChatPanel from "@/components/windie/ChatPanel";
+import ExtensionDetailPage from "@/components/windie/ExtensionDetailPage";
 import InspectorPanel from "@/components/windie/InspectorPanel";
 import { useWindie } from "@/context/WindieContext";
 import { listLlmProviderKeys, listLlmProviders } from "@/lib/windieApi";
 
 export default function Windie() {
   const [overlay, setOverlay] = useState(null);
+  const [activeSidebarView, setActiveSidebarView] = useState("conversations");
+  const [selectedExtensionId, setSelectedExtensionId] = useState(null);
   const onboardingCheckedRef = useRef(false);
-  const [treeCollapsed, setTreeCollapsed] = useState(() => {
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
     try {
-      const value = window.localStorage.getItem("windie.treeCollapsed");
-      return value == null ? true : value === "true";
+      const value = Number(window.localStorage.getItem("windie.sidebarWidth"));
+      return Number.isFinite(value) && value >= 260 && value <= 560 ? value : 360;
     } catch {
-      return true;
+      return 360;
     }
   });
-  const firstMessageOpenedRef = useRef(false);
-  const openTreeForFirstMessage = useCallback(() => {
-    if (firstMessageOpenedRef.current) return;
-    firstMessageOpenedRef.current = true;
-    setTreeCollapsed(false);
-  }, []);
+
+  const startSidebarResize = useCallback(
+    (event) => {
+      event.preventDefault();
+      const startX = event.clientX;
+      const startWidth = sidebarWidth;
+      const handleMove = (moveEvent) => {
+        const nextWidth = Math.min(560, Math.max(260, startWidth + moveEvent.clientX - startX));
+        setSidebarWidth(nextWidth);
+      };
+      const handleUp = () => {
+        document.removeEventListener("mousemove", handleMove);
+        document.removeEventListener("mouseup", handleUp);
+        document.body.style.userSelect = "";
+        document.body.style.cursor = "";
+      };
+      document.body.style.userSelect = "none";
+      document.body.style.cursor = "col-resize";
+      document.addEventListener("mousemove", handleMove);
+      document.addEventListener("mouseup", handleUp);
+    },
+    [sidebarWidth]
+  );
 
   // First-run setup: open onboarding unless Bifrost has validated an enabled
   // provider key. key_count only reports stored key records, so it cannot be
@@ -70,28 +91,35 @@ export default function Windie() {
 
   useEffect(() => {
     try {
-      window.localStorage.setItem("windie.treeCollapsed", String(treeCollapsed));
+      window.localStorage.setItem("windie.sidebarWidth", String(sidebarWidth));
     } catch {
-      // Storage may be unavailable; panel state still works for this session.
+      // Storage may be unavailable; the sidebar still resizes for this session.
     }
-  }, [treeCollapsed]);
+  }, [sidebarWidth]);
 
   return (
     <div
       data-testid="windie-app-root"
       className="relative h-full w-full flex flex-col bg-background text-foreground overflow-hidden"
     >
-      <TopBar
-        treeCollapsed={treeCollapsed}
-        onTreeToggle={() => setTreeCollapsed((value) => !value)}
-        overlay={overlay}
-        onOverlayChange={setOverlay}
-      />
+      <TopBar />
       <div className="flex-1 min-h-0 flex">
-        <Sidebar treeCollapsed={treeCollapsed} />
+        <ActivityBar activeView={activeSidebarView} onViewChange={setActiveSidebarView} />
+        <Sidebar
+          activeView={activeSidebarView}
+          sidebarWidth={sidebarWidth}
+          onResizeStart={startSidebarResize}
+          onSelectExtension={setSelectedExtensionId}
+          onSelectConversation={() => setSelectedExtensionId(null)}
+          selectedExtensionId={selectedExtensionId}
+        />
         <div className="flex-1 min-w-0 relative flex">
           <div className="flex-1 min-w-0 relative flex flex-col min-h-0">
-            <ChatPanel onFirstMessage={openTreeForFirstMessage} />
+            {selectedExtensionId ? (
+              <ExtensionDetailPage providerId={selectedExtensionId} />
+            ) : (
+              <ChatPanel />
+            )}
           </div>
           {overlay && <InspectorPanel mode={overlay} onClose={() => setOverlay(null)} />}
         </div>
