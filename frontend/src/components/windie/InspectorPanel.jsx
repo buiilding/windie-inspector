@@ -140,19 +140,11 @@ export default function InspectorPanel({ mode, onClose }) {
     return () => document.removeEventListener("keydown", handleKey);
   }, [onClose]);
 
-  if ((!activeConv && mode !== "onboarding") || !mode) return null;
+  if (!activeConv || !mode) return null;
 
   return (
     <div data-testid="windie-inspector-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }} className={`absolute inset-0 z-40 bg-background/90 backdrop-blur-sm flex items-start justify-center overflow-y-auto windie-scroll ${mode === "tools" ? "p-0" : "px-6 pt-12 pb-6"}`} style={{ scrollbarGutter: "stable" }}>
-      <div data-testid={`windie-${mode}-overlay`} className={`w-full border border-border bg-background shadow-lg flex flex-col ${mode === "tools" ? "h-full max-w-none max-h-none self-stretch" : mode === "system" ? "max-w-5xl h-[77vh] self-start" : "max-w-4xl max-h-[calc(100vh-7rem)]"} ${mode === "onboarding" ? "h-[77vh] self-start" : ""}`}>
-        {mode === "onboarding" ? (
-          <div className="h-10 shrink-0 border-b border-border px-4 flex items-center justify-between">
-            <span className="font-mono text-[11px] uppercase tracking-widest">setup</span>
-            <button type="button" data-testid="windie-overlay-close" onClick={onClose} aria-label="close overlay" className="p-1 text-muted-foreground hover:text-foreground hover:bg-surface-hover">
-              <X className="size-3.5" strokeWidth={1.75} />
-            </button>
-          </div>
-        ) : null}
+      <div data-testid={`windie-${mode}-overlay`} className={`w-full border border-border bg-background shadow-lg flex flex-col ${mode === "tools" ? "h-full max-w-none max-h-none self-stretch" : mode === "system" ? "max-w-5xl h-[77vh] self-start" : "max-w-4xl max-h-[calc(100vh-7rem)]"}`}>
         {mode === "tools" && (
           <div className="flex h-10 shrink-0 items-center gap-1 border-b border-border bg-surface/20 px-3">
             <button
@@ -203,38 +195,7 @@ export default function InspectorPanel({ mode, onClose }) {
           </div>
         )}
         <div className="flex-1 min-h-0 overflow-y-auto windie-scroll" style={{ scrollbarGutter: "stable" }}>
-          {mode === "onboarding" ? (
-            <div className="flex min-h-full flex-col">
-              <div className="border-b border-border bg-surface/25 px-5 py-5">
-                <div className="font-sans text-lg font-medium tracking-tight">Welcome to Windie</div>
-                <p className="mt-1 max-w-2xl text-[12px] leading-relaxed text-muted-foreground">
-                  Connect a model provider and install local curated extensions.
-                </p>
-              </div>
-              <div className="border-b border-border">
-                <div className="px-3 pt-3 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                  1 · model providers
-                </div>
-                <LlmProvidersPanel onModelsChanged={refreshModels} />
-              </div>
-              <div>
-                <div className="px-3 pt-3 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                  2 · extensions
-                </div>
-                <ExtensionsPanel />
-              </div>
-              <div className="mt-auto flex items-center justify-end gap-2 border-t border-border bg-surface/25 px-5 py-3">
-                <button
-                  type="button"
-                  data-testid="onboarding-done"
-                  onClick={onClose}
-                  className="h-8 border border-foreground bg-foreground px-4 font-mono text-[10px] uppercase tracking-widest text-background transition-opacity hover:opacity-85"
-                >
-                  done
-                </button>
-              </div>
-            </div>
-          ) : mode === "system" ? (
+          {mode === "system" ? (
             systemView === "providers" ? (
               <LlmProvidersPanel onModelsChanged={refreshModels} />
             ) : (

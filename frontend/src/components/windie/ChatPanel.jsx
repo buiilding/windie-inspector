@@ -84,11 +84,12 @@ function LiveExecutionIndicator({ count }) {
   );
 }
 
-export default function ChatPanel({ onFirstMessage, onNavigate }) {
-  const { activeConv, selectedSession, selectedPathNodes, streaming, pendingAssistant, stopStreaming, apiError } = useWindie();
+export default function ChatPanel({ onFirstMessage, onNavigate, onContinue }) {
+  const { activeConv, selectedSession, selectedPathNodes, streaming, pendingAssistant, stopStreaming, apiError, setupComplete } = useWindie();
   const scrollRef = useRef(null);
   const prevConvId = useRef(activeConv?.id);
   const [expandedExecutionGroups, setExpandedExecutionGroups] = useState(() => new Set());
+  const [creatingConversation, setCreatingConversation] = useState(false);
   const items = useMemo(() => transcriptItems(selectedPathNodes), [selectedPathNodes]);
   // Streaming previews belong to a session's active path, not to whichever
   // historical path is currently being inspected. Keep the session's
@@ -109,6 +110,15 @@ export default function ChatPanel({ onFirstMessage, onNavigate }) {
     ? executionToolCount(currentExecutionGroup.nodes.map(({ node }) => node))
     : 0;
   const liveToolCount = pendingToolCount > persistedToolCount ? pendingToolCount : 0;
+  const continueWithNewChat = async () => {
+    if (creatingConversation || !onContinue) return;
+    setCreatingConversation(true);
+    try {
+      await onContinue();
+    } finally {
+      setCreatingConversation(false);
+    }
+  };
 
   // Scroll behavior:
   //   - On conversation switch: reset scroll to top (do NOT auto-scroll to bottom;
@@ -155,24 +165,36 @@ export default function ChatPanel({ onFirstMessage, onNavigate }) {
               </p>
             </div>
 
-            <div className="mt-10 flex max-w-lg flex-col gap-2 sm:flex-row">
+            {setupComplete ? (
               <button
                 type="button"
-                data-testid="welcome-extensions-button"
-                onClick={() => onNavigate?.("extensions")}
-                className="border border-accent bg-accent px-4 py-3 text-left font-mono text-[10px] uppercase tracking-[0.14em] text-accent-foreground transition-colors hover:bg-accent/90 hover:text-accent-foreground"
+                data-testid="welcome-continue-button"
+                disabled={creatingConversation}
+                onClick={continueWithNewChat}
+                className="mt-10 border border-accent bg-accent px-4 py-3 text-left font-mono text-[10px] uppercase tracking-[0.14em] text-accent-foreground transition-colors hover:bg-accent/90 hover:text-accent-foreground disabled:cursor-wait disabled:opacity-70"
               >
-                What can Windie do for you?
+                {creatingConversation ? "starting a new chat" : "You're all set, continue with a new chat"}
               </button>
-              <button
-                type="button"
-                data-testid="welcome-llm-button"
-                onClick={() => onNavigate?.("llms")}
-                className="border border-foreground/70 px-4 py-3 text-left font-mono text-[10px] uppercase tracking-[0.14em] text-foreground transition-colors hover:border-accent hover:bg-accent/10"
-              >
-                Configure LLM providers
-              </button>
-            </div>
+            ) : (
+              <div className="mt-10 flex max-w-lg flex-col gap-2 sm:flex-row">
+                <button
+                  type="button"
+                  data-testid="welcome-extensions-button"
+                  onClick={() => onNavigate?.("extensions")}
+                  className="border border-accent bg-accent px-4 py-3 text-left font-mono text-[10px] uppercase tracking-[0.14em] text-accent-foreground transition-colors hover:bg-accent/90 hover:text-accent-foreground"
+                >
+                  What can Windie do for you?
+                </button>
+                <button
+                  type="button"
+                  data-testid="welcome-llm-button"
+                  onClick={() => onNavigate?.("llms")}
+                  className="border border-foreground/70 px-4 py-3 text-left font-mono text-[10px] uppercase tracking-[0.14em] text-foreground transition-colors hover:border-accent hover:bg-accent/10"
+                >
+                  Configure LLM providers
+                </button>
+              </div>
+            )}
 
             {apiError ? (
               <div className="mt-10 max-w-lg border border-destructive/40 bg-destructive/5 px-3 py-2 font-mono text-[10px] text-destructive">

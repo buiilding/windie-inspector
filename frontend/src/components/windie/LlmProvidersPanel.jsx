@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import {
   CheckCircle2,
   ChevronDown,
@@ -13,32 +13,9 @@ import {
   createLlmProviderKey,
   deleteLlmProviderKey,
   ensureLlmProvider,
-  listLlmProviderKeys,
-  listLlmProviders,
 } from "@/lib/windieApi";
-
-function providerState(provider, keys = []) {
-  if (provider.authentication === "none") {
-    return { kind: "ready", label: "ready · no key needed" };
-  }
-  if (provider.key_count > 0) {
-    const invalidKeyCount = keys.filter((key) => key.status === "list_models_failed").length;
-    if (invalidKeyCount === keys.length && invalidKeyCount > 0) {
-      return { kind: "invalid", label: "invalid key · check key" };
-    }
-    if (invalidKeyCount > 0) {
-      return {
-        kind: "ready",
-        label: `ready · ${provider.key_count} key${provider.key_count === 1 ? "" : "s"} · ${invalidKeyCount} invalid`,
-      };
-    }
-    return {
-      kind: "ready",
-      label: `ready · ${provider.key_count} key${provider.key_count === 1 ? "" : "s"}`,
-    };
-  }
-  return { kind: "needs-key", label: "needs API key" };
-}
+import { useWindie } from "@/context/WindieContext";
+import { providerState } from "@/hooks/useLlmProviderCatalog";
 
 function ProviderRow({ provider, keys, expanded, onToggle }) {
   const state = providerState(provider, keys);
@@ -311,51 +288,13 @@ function ProviderManagement({ provider, keys, keysLoaded, keysError, onRefresh, 
 }
 
 export default function LlmProvidersPanel({ onModelsChanged }) {
-  const [providers, setProviders] = useState([]);
-  const [keysByProvider, setKeysByProvider] = useState({});
-  const [loading, setLoading] = useState(true);
+  const {
+    llmProviders: providers,
+    llmProviderKeysByName: keysByProvider,
+    llmProvidersLoading: loading,
+    refreshLlmProviders: refresh,
+  } = useWindie();
   const [selected, setSelected] = useState([]);
-
-  const refresh = useCallback(async () => {
-    try {
-      setLoading(true);
-      const catalog = await listLlmProviders();
-      const keyEntries = await Promise.all(
-        catalog.map(async (provider) => {
-          if (provider.key_count === 0 || provider.authentication === "none") {
-            return [provider.name, []];
-          }
-          try {
-            return [provider.name, await listLlmProviderKeys(provider.name)];
-          } catch {
-            return [provider.name, null];
-          }
-        })
-      );
-      const nextKeysByProvider = Object.fromEntries(keyEntries);
-      const sortedCatalog = [...catalog].sort((left, right) => {
-        const rank = (provider) => {
-          const kind = providerState(provider, nextKeysByProvider[provider.name] || []).kind;
-          return kind === "ready" ? 0 : kind === "needs-key" ? 1 : 2;
-        };
-        const leftRank = rank(left);
-        const rightRank = rank(right);
-        return leftRank - rightRank || left.display_name.localeCompare(right.display_name);
-      });
-      setProviders(sortedCatalog);
-      setKeysByProvider(nextKeysByProvider);
-    } catch (error) {
-      toast.error("failed to load llm providers", {
-        description: error?.message || String(error),
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
 
   const toggle = (name) =>
     setSelected((current) =>
