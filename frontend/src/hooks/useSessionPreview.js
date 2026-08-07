@@ -94,6 +94,13 @@ export function useSessionPreview() {
     setPendingBySessionId((current) => reducePending(current, session, event));
   }, []);
 
+  const resetAttempt = useCallback((session) => {
+    setPendingBySessionId((current) => ({
+      ...current,
+      [session.id]: emptyPending(session),
+    }));
+  }, []);
+
   const applySavedMessage = useCallback((session, eventType) => {
     setPendingBySessionId((current) => {
       const pending = current[session.id];
@@ -123,6 +130,7 @@ export function useSessionPreview() {
     pendingBySessionId,
     startTurn,
     applyDelta,
+    resetAttempt,
     applySavedMessage,
     clearSession,
     removeSession,

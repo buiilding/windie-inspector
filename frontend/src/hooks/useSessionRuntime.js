@@ -52,6 +52,7 @@ export function useSessionRuntime({
     pendingBySessionId,
     startTurn,
     applyDelta,
+    resetAttempt,
     applySavedMessage,
     clearSession: clearPreview,
     removeSession: removePreview,
@@ -101,6 +102,10 @@ export function useSessionRuntime({
         applyDelta(currentSession, data);
         return;
       }
+      if (projection.type === "assistant_attempt_reset") {
+        resetAttempt(currentSession);
+        return;
+      }
 
       if (projection.isSavedMessage) {
         if (projection.message) {
@@ -129,7 +134,7 @@ export function useSessionRuntime({
 
       clearPreview(currentSession.id);
     },
-    [applyDelta, applySavedMessage, applySessionMessage, clearPreview, loadConversation, rememberSession, setApiError]
+    [applyDelta, applySavedMessage, applySessionMessage, clearPreview, loadConversation, rememberSession, resetAttempt, setApiError]
   );
 
   const onTransportError = useCallback((error) => {

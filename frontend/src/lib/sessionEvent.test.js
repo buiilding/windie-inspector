@@ -32,3 +32,14 @@ test("keeps delta events transient and uses the current session", () => {
   expect(projection.isSavedMessage).toBe(false);
   expect(projection.isTerminal).toBe(false);
 });
+
+test("projects assistant attempt resets as non-terminal lifecycle events", () => {
+  const projection = projectSessionEvent(session, {
+    type: "assistant_attempt_reset",
+  });
+
+  expect(projection.type).toBe("assistant_attempt_reset");
+  expect(projection.isDelta).toBe(false);
+  expect(projection.isSavedMessage).toBe(false);
+  expect(projection.isTerminal).toBe(false);
+});
