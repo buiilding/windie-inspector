@@ -21,9 +21,6 @@ function providerState(provider, keys = []) {
   if (provider.authentication === "none") {
     return { kind: "ready", label: "ready · no key needed" };
   }
-  if (provider.configuration !== "simple" || provider.authentication !== "api_key") {
-    return { kind: "unsupported", label: "structured setup required" };
-  }
   if (provider.key_count > 0) {
     const invalidKeyCount = keys.filter((key) => key.status === "list_models_failed").length;
     if (invalidKeyCount === keys.length && invalidKeyCount > 0) {
@@ -45,15 +42,13 @@ function providerState(provider, keys = []) {
 
 function ProviderRow({ provider, keys, expanded, onToggle }) {
   const state = providerState(provider, keys);
-  const disabled = state.kind === "unsupported";
 
   return (
     <button
       type="button"
       data-testid={`llm-provider-select-${provider.name}`}
-      disabled={disabled}
       onClick={() => onToggle(provider.name)}
-      className={`flex w-full items-center justify-between gap-3 border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+      className={`flex w-full items-center justify-between gap-3 border px-3 py-2 text-left transition-colors ${
         expanded
           ? "border-foreground bg-surface/60"
           : "border-border hover:bg-surface-hover"
