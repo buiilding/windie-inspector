@@ -44,6 +44,9 @@ export const providerRepositories = {
 };
 
 export function providerOnboardingNote(providerId) {
+  if (providerId === "parallel-search") {
+    return "Parallel Search works anonymously for basic usage. Add a Parallel API key for higher rate limits; it is stored locally in ~/.windie/.env.";
+  }
   if (providerId !== "chrome-devtools") return null;
 
   return "Windie opens a separate persistent Chrome profile. Log into websites once, and Windie will reuse that browser session in future runs. Your normal Chrome profile and open tabs are not used.";
@@ -69,6 +72,7 @@ export function providerStatus(provider, toolStatus) {
       external_app_required: "app required",
       permission_required: "permission needed",
       missing_secret: "credential needed",
+      authentication_failed: "credential rejected",
       unsupported_platform: "unsupported",
     };
     return { label: labels[readiness] || "needs repair", tone: "bad", icon: AlertTriangle };
@@ -230,7 +234,8 @@ function ProviderCard({ provider, toolStatus, pending, theme, onAction }) {
   const installed = Boolean(provider.installation);
   const state = provider.installation?.state;
   const setupAvailable = (provider.kind || "mcp").toLowerCase() === "mcp";
-  const repositoryUrl = providerRepositories[provider.providerId];
+  const repositoryUrl = providerRepositories[provider.providerId] || provider.documentationUrl;
+  const repositoryLabel = providerRepositories[provider.providerId] ? "GitHub repository" : "documentation";
 
   return (
     <article className="group flex flex-col border border-border bg-card/60 transition-colors hover:border-muted-foreground/50 hover:bg-card">
@@ -295,7 +300,7 @@ function ProviderCard({ provider, toolStatus, pending, theme, onAction }) {
               title={repositoryUrl}
               className="inline-flex min-w-0 items-center gap-1 text-muted-foreground transition-colors hover:text-foreground"
             >
-              <span className="truncate normal-case tracking-normal">GitHub repository</span>
+              <span className="truncate normal-case tracking-normal">{repositoryLabel}</span>
               <ExternalLink className="size-3 shrink-0" strokeWidth={1.75} />
             </a>
           ) : null}
