@@ -84,7 +84,7 @@ function LiveExecutionIndicator({ count }) {
   );
 }
 
-export default function ChatPanel({ onFirstMessage }) {
+export default function ChatPanel({ onFirstMessage, onNavigate }) {
   const { activeConv, selectedSession, selectedPathNodes, streaming, pendingAssistant, stopStreaming, apiError } = useWindie();
   const scrollRef = useRef(null);
   const prevConvId = useRef(activeConv?.id);
@@ -153,6 +153,25 @@ export default function ChatPanel({ onFirstMessage }) {
               <p className="mt-3 font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">
                 Please be kind with it <span className="text-base normal-case tracking-normal">😊</span>
               </p>
+            </div>
+
+            <div className="mt-10 flex max-w-lg flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                data-testid="welcome-extensions-button"
+                onClick={() => onNavigate?.("extensions")}
+                className="border border-accent bg-accent px-4 py-3 text-left font-mono text-[10px] uppercase tracking-[0.14em] text-accent-foreground transition-colors hover:bg-accent/90 hover:text-accent-foreground"
+              >
+                What can Windie do for you?
+              </button>
+              <button
+                type="button"
+                data-testid="welcome-llm-button"
+                onClick={() => onNavigate?.("llms")}
+                className="border border-foreground/70 px-4 py-3 text-left font-mono text-[10px] uppercase tracking-[0.14em] text-foreground transition-colors hover:border-accent hover:bg-accent/10"
+              >
+                Configure LLM providers
+              </button>
             </div>
 
             {apiError ? (

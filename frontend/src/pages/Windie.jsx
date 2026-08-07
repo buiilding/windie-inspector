@@ -22,6 +22,11 @@ export default function Windie() {
     }
   });
 
+  const navigateToSidebarView = useCallback((view) => {
+    setActiveSidebarView(view);
+    setSelectedExtensionId(null);
+  }, []);
+
   const startSidebarResize = useCallback(
     (event) => {
       event.preventDefault();
@@ -118,7 +123,7 @@ export default function Windie() {
             {selectedExtensionId ? (
               <ExtensionDetailPage providerId={selectedExtensionId} />
             ) : (
-              <ChatPanel />
+              <ChatPanel onNavigate={navigateToSidebarView} />
             )}
           </div>
           {overlay && <InspectorPanel mode={overlay} onClose={() => setOverlay(null)} />}
