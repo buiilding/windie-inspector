@@ -22,6 +22,7 @@ export function useToolCatalog({ onError }) {
   const [toolProviderStatuses, setToolProviderStatuses] = useState([]);
   const [providerInstallations, setProviderInstallations] = useState([]);
   const [providerInstallationsLoading, setProviderInstallationsLoading] = useState(false);
+  const [providerInstallationsLoaded, setProviderInstallationsLoaded] = useState(false);
 
   const refreshAvailableTools = useCallback(async () => {
     setAvailableToolsLoading(true);
@@ -44,6 +45,7 @@ export function useToolCatalog({ onError }) {
       return nextProviders;
     } finally {
       setProviderInstallationsLoading(false);
+      setProviderInstallationsLoaded(true);
     }
   }, []);
 
@@ -103,6 +105,7 @@ export function useToolCatalog({ onError }) {
     toolProviderStatuses,
     providerInstallations,
     providerInstallationsLoading,
+    providerInstallationsLoaded,
     refreshAvailableTools,
     refreshProviderInstallations,
     setupProvider,

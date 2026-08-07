@@ -17,6 +17,7 @@ import { useInspectorState } from "@/hooks/useInspectorState";
 import { useModelCatalog } from "@/hooks/useModelCatalog";
 import { useSessionRuntime } from "@/hooks/useSessionRuntime";
 import { useToolCatalog } from "@/hooks/useToolCatalog";
+import { useLlmProviderCatalog } from "@/hooks/useLlmProviderCatalog";
 import {
   contextSignatureParts,
   pathNodesForConversation,
@@ -112,6 +113,7 @@ export function WindieProvider({ children }) {
     toolProviderStatuses,
     providerInstallations,
     providerInstallationsLoading,
+    providerInstallationsLoaded,
     refreshAvailableTools,
     refreshProviderInstallations,
     setupProvider,
@@ -120,6 +122,16 @@ export function WindieProvider({ children }) {
     repairProvider,
     uninstallProvider,
   } = useToolCatalog({
+    onError: handleResourceError,
+  });
+  const {
+    providers: llmProviders,
+    keysByProvider: llmProviderKeysByName,
+    loading: llmProvidersLoading,
+    loaded: llmProvidersLoaded,
+    refresh: refreshLlmProviders,
+    hasReadyEnabledLlmProvider,
+  } = useLlmProviderCatalog({
     onError: handleResourceError,
   });
   const sessionRuntime = useSessionRuntime({
@@ -205,6 +217,19 @@ export function WindieProvider({ children }) {
       source: cur?.inputTokens != null ? cur?.source || null : unavailable ? cur.source : used != null ? "postquery_total" : null,
     };
   }, [activeConv?.id, selectedPathNodes, activeContextSignatures.fullSignature, activeCatalogModel, activeModelId, inputTokenCounts]);
+  const hasEnabledExtension = useMemo(
+    () => providerInstallations.some((provider) => provider.installation?.state === "enabled"),
+    [providerInstallations]
+  );
+  const setupReadinessKnown =
+    llmProvidersLoaded &&
+    providerInstallationsLoaded &&
+    !llmProvidersLoading &&
+    !providerInstallationsLoading;
+  const setupComplete =
+    setupReadinessKnown &&
+    hasReadyEnabledLlmProvider &&
+    hasEnabledExtension;
 
   const runMutation = useCallback(
     async (op, options = {}) => {
@@ -429,6 +454,12 @@ export function WindieProvider({ children }) {
     toolProviderStatuses,
     providerInstallations,
     providerInstallationsLoading,
+    llmProviders,
+    llmProviderKeysByName,
+    llmProvidersLoading,
+    refreshLlmProviders,
+    setupReadinessKnown,
+    setupComplete,
     apiError,
     gatewayRunning,
     approvals,

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   fetchModelParameters,
   listModels,
@@ -10,20 +10,29 @@ export function useModelCatalog({ gatewayRunning, activeModelId }) {
   const [modelsLoading, setModelsLoading] = useState(false);
   const [modelsError, setModelsError] = useState(null);
   const [modelParametersById, setModelParametersById] = useState({});
+  const refreshRequestRef = useRef(0);
+  const modelsRef = useRef(models);
 
   const refreshModels = useCallback(async () => {
+    const requestId = ++refreshRequestRef.current;
     setModelsLoading(true);
     try {
       const nextModels = await listModels();
+      if (requestId !== refreshRequestRef.current) return null;
+      modelsRef.current = nextModels;
       setModels(nextModels);
       setModelsError(null);
       return nextModels;
     } catch (error) {
-      setModels([]);
-      setModelsError(error.message);
+      if (requestId !== refreshRequestRef.current) return null;
+      // Keep an existing catalog usable when a later refresh is transiently
+      // unavailable. The caller still receives the error so it can report the
+      // failed refresh, but the model picker does not lose known-good data.
+      if (modelsRef.current.length === 0) setModelsError(error.message);
+      else setModelsError(null);
       throw error;
     } finally {
-      setModelsLoading(false);
+      if (requestId === refreshRequestRef.current) setModelsLoading(false);
     }
   }, []);
 
@@ -63,6 +72,9 @@ export function useModelCatalog({ gatewayRunning, activeModelId }) {
 
   useEffect(() => {
     refreshModels().catch(() => {});
+    return () => {
+      refreshRequestRef.current += 1;
+    };
   }, [refreshModels]);
 
   const activeCatalogModel = useMemo(

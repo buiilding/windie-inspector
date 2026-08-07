@@ -1,18 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import TopBar from "@/components/windie/TopBar";
 import ActivityBar from "@/components/windie/ActivityBar";
 import Sidebar from "@/components/windie/Sidebar";
 import ChatPanel from "@/components/windie/ChatPanel";
 import ExtensionDetailPage from "@/components/windie/ExtensionDetailPage";
-import InspectorPanel from "@/components/windie/InspectorPanel";
 import { useWindie } from "@/context/WindieContext";
-import { listLlmProviderKeys, listLlmProviders } from "@/lib/windieApi";
 
 export default function Windie() {
-  const [overlay, setOverlay] = useState(null);
+  const { createConversation } = useWindie();
   const [activeSidebarView, setActiveSidebarView] = useState("conversations");
   const [selectedExtensionId, setSelectedExtensionId] = useState(null);
-  const onboardingCheckedRef = useRef(false);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     try {
       const value = Number(window.localStorage.getItem("windie.sidebarWidth"));
@@ -21,6 +18,16 @@ export default function Windie() {
       return 360;
     }
   });
+
+  const navigateToSidebarView = useCallback((view) => {
+    setActiveSidebarView(view);
+    setSelectedExtensionId(null);
+  }, []);
+
+  const continueWithNewChat = useCallback(async () => {
+    await createConversation();
+    navigateToSidebarView("conversations");
+  }, [createConversation, navigateToSidebarView]);
 
   const startSidebarResize = useCallback(
     (event) => {
@@ -44,50 +51,6 @@ export default function Windie() {
     },
     [sidebarWidth]
   );
-
-  // First-run setup: open onboarding unless Bifrost has validated an enabled
-  // provider key. key_count only reports stored key records, so it cannot be
-  // used as a readiness signal for auto-detected environment keys.
-  useEffect(() => {
-    if (onboardingCheckedRef.current) return;
-    onboardingCheckedRef.current = true;
-    listLlmProviders().then(async (providers) => {
-      const readiness = await Promise.all(
-        providers.map(async (provider) => {
-          if (provider.authentication === "none") {
-            return { checked: true, ready: true };
-          }
-          if (!provider.configured || provider.key_count === 0) {
-            return { checked: true, ready: false };
-          }
-
-          try {
-            const keys = await listLlmProviderKeys(provider.name);
-            return {
-              checked: true,
-              ready: keys.some(
-                (key) => key.enabled !== false && key.status === "success"
-              ),
-            };
-          } catch {
-            // Keep the existing startup behavior when Bifrost is still coming
-            // up or its key endpoint is temporarily unavailable.
-            return { checked: false, ready: false };
-          }
-        })
-      );
-
-      if (
-        readiness.every(({ checked }) => checked) &&
-        !readiness.some(({ ready }) => ready)
-      ) {
-        setOverlay("onboarding");
-      }
-    }).catch(() => {
-      // The API may still be starting; skipping the auto-show is safer than
-      // showing setup to an already-configured user.
-    });
-  }, []);
 
   useEffect(() => {
     try {
@@ -118,10 +81,12 @@ export default function Windie() {
             {selectedExtensionId ? (
               <ExtensionDetailPage providerId={selectedExtensionId} />
             ) : (
-              <ChatPanel />
+              <ChatPanel
+                onNavigate={navigateToSidebarView}
+                onContinue={continueWithNewChat}
+              />
             )}
           </div>
-          {overlay && <InspectorPanel mode={overlay} onClose={() => setOverlay(null)} />}
         </div>
       </div>
     </div>

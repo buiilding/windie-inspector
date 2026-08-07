@@ -20,6 +20,38 @@ describe("providerInstallationsFromApi", () => {
     expect(provider.installation.error).toContain("BRIGHTDATA");
     expect(provider.runtime).toBe("node");
   });
+
+  test("maps hosted remote provider metadata and optional secrets", () => {
+    const [provider] = providerInstallationsFromApi([
+      {
+        manifest: {
+          provider_id: "parallel-search",
+          display_name: "Parallel Search",
+          transport: "streamable_http",
+          authentication: "optional_api_key",
+          documentation_url: "https://docs.parallel.ai/integrations/mcp/search-mcp",
+          secrets: [
+            {
+              env_key: "PARALLEL_API_KEY",
+              description: "Parallel API key for higher rate limits",
+              required: false,
+            },
+          ],
+          launch: {
+            type: "streamable_http",
+            url: "https://search.parallel.ai/mcp",
+          },
+        },
+        installation: null,
+      },
+    ]);
+
+    expect(provider.transport).toBe("streamable_http");
+    expect(provider.authentication).toBe("optional_api_key");
+    expect(provider.documentationUrl).toContain("parallel.ai");
+    expect(provider.launch.type).toBe("streamable_http");
+    expect(provider.secrets[0].required).toBe(false);
+  });
 });
 
 describe("upsertConversationMessage", () => {
