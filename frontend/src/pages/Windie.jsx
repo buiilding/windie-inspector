@@ -24,6 +24,10 @@ export default function Windie() {
     setSelectedExtensionId(null);
   }, []);
 
+  const handleActivityBarViewChange = useCallback((view) => {
+    setActiveSidebarView((current) => (current === view ? null : view));
+  }, []);
+
   const continueWithNewChat = useCallback(async () => {
     await createConversation();
     navigateToSidebarView("conversations");
@@ -67,15 +71,17 @@ export default function Windie() {
     >
       <TopBar />
       <div className="flex-1 min-h-0 flex">
-        <ActivityBar activeView={activeSidebarView} onViewChange={setActiveSidebarView} />
-        <Sidebar
-          activeView={activeSidebarView}
-          sidebarWidth={sidebarWidth}
-          onResizeStart={startSidebarResize}
-          onSelectExtension={setSelectedExtensionId}
-          onSelectConversation={() => setSelectedExtensionId(null)}
-          selectedExtensionId={selectedExtensionId}
-        />
+        <ActivityBar activeView={activeSidebarView} onViewChange={handleActivityBarViewChange} />
+        {activeSidebarView && (
+          <Sidebar
+            activeView={activeSidebarView}
+            sidebarWidth={sidebarWidth}
+            onResizeStart={startSidebarResize}
+            onSelectExtension={setSelectedExtensionId}
+            onSelectConversation={() => setSelectedExtensionId(null)}
+            selectedExtensionId={selectedExtensionId}
+          />
+        )}
         <div className="flex-1 min-w-0 relative flex">
           <div className="flex-1 min-w-0 relative flex flex-col min-h-0">
             {selectedExtensionId ? (
