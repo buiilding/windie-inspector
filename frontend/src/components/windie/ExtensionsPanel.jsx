@@ -34,15 +34,6 @@ const providerIcons = {
   brightdata: brightDataLogo,
 };
 
-export const providerRepositories = {
-  "cua-driver": "https://github.com/trycua/cua",
-  "desktop-commander": "https://github.com/wonderwhy-er/DesktopCommanderMCP",
-  "blender-mcp": "https://github.com/ahujasid/blender-mcp",
-  brightdata: "https://github.com/brightdata/brightdata-mcp",
-  "basic-memory": "https://github.com/basicmachines-co/basic-memory",
-  "chrome-devtools": "https://github.com/ChromeDevTools/chrome-devtools-mcp",
-};
-
 export function providerOnboardingNote(providerId) {
   if (providerId === "parallel-search") {
     return "Parallel Search works anonymously for basic usage. Add a Parallel API key for higher rate limits; it is stored locally in ~/.windie/.env.";
@@ -234,8 +225,8 @@ function ProviderCard({ provider, toolStatus, pending, theme, onAction }) {
   const installed = Boolean(provider.installation);
   const state = provider.installation?.state;
   const setupAvailable = (provider.kind || "mcp").toLowerCase() === "mcp";
-  const repositoryUrl = providerRepositories[provider.providerId] || provider.documentationUrl;
-  const repositoryLabel = providerRepositories[provider.providerId] ? "GitHub repository" : "documentation";
+  const repositoryUrl = provider.documentationUrl;
+  const repositoryLabel = "documentation";
 
   return (
     <article className="group min-w-0 flex flex-col border border-border bg-card/60 transition-colors hover:border-muted-foreground/50 hover:bg-card">
