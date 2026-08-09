@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   Check,
@@ -165,13 +165,13 @@ export function ProviderSecretsForm({ providerId, secrets, disabled }) {
   };
 
   return (
-    <div className="space-y-2 border-t border-border pt-3">
+    <div className="min-w-0 space-y-2 border-t border-border pt-3">
       <div className="flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-widest text-muted-foreground">
         <KeyRound className="size-3" strokeWidth={1.75} />
         credentials · stored in ~/.windie/.env
       </div>
       {secrets.map((secret) => (
-        <div key={secret.env_key} className="space-y-1">
+        <div key={secret.env_key} className="min-w-0 space-y-1">
           <label
             htmlFor={`secret-${providerId}-${secret.env_key}`}
             className="block font-mono text-[9px] uppercase tracking-widest text-muted-foreground"
@@ -196,7 +196,7 @@ export function ProviderSecretsForm({ providerId, secrets, disabled }) {
             autoComplete="new-password"
             data-1p-ignore
             data-lpignore="true"
-            className="h-8 w-full border border-border bg-background px-2 font-mono text-[11px] outline-none focus:border-foreground disabled:opacity-50"
+            className="h-8 min-w-0 max-w-full w-full border border-border bg-background px-2 font-mono text-[11px] outline-none focus:border-foreground disabled:opacity-50"
           />
         </div>
       ))}
@@ -238,7 +238,7 @@ function ProviderCard({ provider, toolStatus, pending, theme, onAction }) {
   const repositoryLabel = providerRepositories[provider.providerId] ? "GitHub repository" : "documentation";
 
   return (
-    <article className="group flex flex-col border border-border bg-card/60 transition-colors hover:border-muted-foreground/50 hover:bg-card">
+    <article className="group min-w-0 flex flex-col border border-border bg-card/60 transition-colors hover:border-muted-foreground/50 hover:bg-card">
       <div className="flex items-start gap-3 border-b border-border p-4">
         <div className="grid size-12 shrink-0 place-items-center overflow-hidden border border-border bg-surface text-foreground shadow-sm">
           {providerIcon ? (
@@ -469,7 +469,7 @@ function FullExtensionsPanel() {
             <div className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">no MCPs found</div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div className="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2">
             {providerInstallations.map((provider) => (
               <ProviderCard
                 key={provider.providerId}
@@ -504,6 +504,7 @@ function SidebarExtensions({ onSelectExtension, selectedExtensionId }) {
   const [availableExpanded, setAvailableExpanded] = useState(true);
   const [pendingProviderId, setPendingProviderId] = useState(null);
   const [openMenuProviderId, setOpenMenuProviderId] = useState(null);
+  const menuRef = useRef(null);
   const installed = useMemo(
     () => providerInstallations.filter((provider) => Boolean(provider.installation)),
     [providerInstallations]
@@ -520,6 +521,22 @@ function SidebarExtensions({ onSelectExtension, selectedExtensionId }) {
   };
   const filteredInstalled = installed.filter(matchesQuery);
   const filteredAvailable = available.filter(matchesQuery);
+
+  useEffect(() => {
+    if (!openMenuProviderId) return undefined;
+    const handleClick = (event) => {
+      if (!menuRef.current?.contains(event.target)) setOpenMenuProviderId(null);
+    };
+    const handleKey = (event) => {
+      if (event.key === "Escape") setOpenMenuProviderId(null);
+    };
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [openMenuProviderId]);
 
   const install = async (provider) => {
     setPendingProviderId(provider.providerId);
@@ -624,46 +641,51 @@ function SidebarExtensions({ onSelectExtension, selectedExtensionId }) {
                     <span className="block truncate font-sans text-[11px] font-medium text-muted-foreground">{provider.author || provider.providerId}</span>
                   </span>
                   </button>
-                  <button
-                    type="button"
-                    aria-label={`settings for ${provider.displayName}`}
-                    aria-expanded={openMenuProviderId === provider.providerId}
-                    disabled={pendingProviderId === provider.providerId}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setOpenMenuProviderId((current) => current === provider.providerId ? null : provider.providerId);
-                    }}
-                    className="absolute bottom-1.5 right-3 grid size-6 place-items-center text-muted-foreground hover:bg-surface-hover hover:text-foreground disabled:opacity-50"
+                  <div
+                    ref={openMenuProviderId === provider.providerId ? menuRef : null}
+                    className="absolute bottom-1.5 right-3"
                   >
-                    <Settings className="size-3.5" strokeWidth={1.75} />
-                  </button>
-                  {openMenuProviderId === provider.providerId && (
-                    <div className="absolute right-3 top-[calc(100%-0.25rem)] z-20 w-36 border border-border bg-popover py-1 shadow-md">
-                      <button
-                        type="button"
-                        onClick={() => runAction(state === "disabled" ? "enable" : "disable", provider.providerId)}
-                        className="flex w-full items-center px-3 py-2 text-left font-mono text-[10px] uppercase tracking-widest hover:bg-surface-hover"
-                      >
-                        {state === "disabled" ? "enable" : "disable"}
-                      </button>
-                      {state === "broken" && (
+                    <button
+                      type="button"
+                      aria-label={`settings for ${provider.displayName}`}
+                      aria-expanded={openMenuProviderId === provider.providerId}
+                      disabled={pendingProviderId === provider.providerId}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setOpenMenuProviderId((current) => current === provider.providerId ? null : provider.providerId);
+                      }}
+                      className="grid size-6 place-items-center text-muted-foreground hover:bg-surface-hover hover:text-foreground disabled:opacity-50"
+                    >
+                      <Settings className="size-3.5" strokeWidth={1.75} />
+                    </button>
+                    {openMenuProviderId === provider.providerId && (
+                      <div className="absolute right-0 top-[calc(100%-0.25rem)] z-20 w-36 border border-border bg-popover py-1 shadow-md">
                         <button
                           type="button"
-                          onClick={() => runAction("repair", provider.providerId)}
+                          onClick={() => runAction(state === "disabled" ? "enable" : "disable", provider.providerId)}
                           className="flex w-full items-center px-3 py-2 text-left font-mono text-[10px] uppercase tracking-widest hover:bg-surface-hover"
                         >
-                          repair
+                          {state === "disabled" ? "enable" : "disable"}
                         </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => runAction("uninstall", provider.providerId)}
-                        className="flex w-full items-center px-3 py-2 text-left font-mono text-[10px] uppercase tracking-widest text-[hsl(var(--destructive))] hover:bg-surface-hover"
-                      >
-                        uninstall
-                      </button>
-                    </div>
-                  )}
+                        {state === "broken" && (
+                          <button
+                            type="button"
+                            onClick={() => runAction("repair", provider.providerId)}
+                            className="flex w-full items-center px-3 py-2 text-left font-mono text-[10px] uppercase tracking-widest hover:bg-surface-hover"
+                          >
+                            repair
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => runAction("uninstall", provider.providerId)}
+                          className="flex w-full items-center px-3 py-2 text-left font-mono text-[10px] uppercase tracking-widest text-[hsl(var(--destructive))] hover:bg-surface-hover"
+                        >
+                          uninstall
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })}

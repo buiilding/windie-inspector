@@ -57,6 +57,23 @@ export default function ConversationPicker({ variant = "topbar", dropUp = false,
     };
   }, [inSidebar, open]);
 
+  useEffect(() => {
+    if (!menuConversation) return undefined;
+    const handleClick = (event) => {
+      if (event.target.closest("[data-conv-menu-toggle]")) return;
+      setMenuConversation(null);
+    };
+    const handleKey = (event) => {
+      if (event.key === "Escape") setMenuConversation(null);
+    };
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [menuConversation]);
+
   const sorted = useMemo(() => {
     const q = query.trim().toLowerCase();
     const filtered = q
@@ -150,6 +167,7 @@ export default function ConversationPicker({ variant = "topbar", dropUp = false,
               </button>
               <button
                 type="button"
+                data-conv-menu-toggle="true"
                 data-testid={`${inSidebar ? "sidebar" : "topbar"}-conv-menu-${shortId(conv.id)}`}
                 aria-label={`conversation actions ${shortId(conv.id)}`}
                 title="conversation actions"

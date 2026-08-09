@@ -95,11 +95,11 @@ function ProviderKeyForm({ provider, onSaved, onModelsChanged, onCancel }) {
   };
 
   return (
-    <div className="space-y-2 border border-t-0 border-border bg-surface/30 px-3 py-3">
+    <div className="min-w-0 space-y-2 border border-t-0 border-border bg-surface/30 px-3 py-3">
       <div className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">
         add API key
       </div>
-      <div className="grid gap-2 sm:grid-cols-[1fr_2fr]">
+      <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
         <input
           type="text"
           data-testid={`llm-key-name-${provider.name}`}
@@ -109,7 +109,7 @@ function ProviderKeyForm({ provider, onSaved, onModelsChanged, onCancel }) {
           autoComplete="off"
           data-1p-ignore
           data-lpignore="true"
-          className="h-8 border border-border bg-background px-2 font-mono text-[11px] outline-none focus:border-foreground"
+          className="h-8 min-w-0 w-full max-w-full border border-border bg-background px-2 font-mono text-[11px] outline-none focus:border-foreground"
         />
         <input
           type="password"
@@ -123,7 +123,7 @@ function ProviderKeyForm({ provider, onSaved, onModelsChanged, onCancel }) {
           autoComplete="new-password"
           data-1p-ignore
           data-lpignore="true"
-          className="h-8 border border-border bg-background px-2 font-mono text-[11px] outline-none focus:border-foreground"
+          className="h-8 min-w-0 w-full max-w-full border border-border bg-background px-2 font-mono text-[11px] outline-none focus:border-foreground"
         />
       </div>
       <div className="flex items-center justify-between gap-2">
@@ -313,7 +313,7 @@ export default function LlmProvidersPanel({ onModelsChanged }) {
   }
 
   return (
-    <div className="p-3" data-testid="llm-providers-panel">
+    <div className="min-w-0 p-3" data-testid="llm-providers-panel">
       <div className="mb-2 flex items-center justify-between px-1">
         <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
           llm providers · {providers.length}
