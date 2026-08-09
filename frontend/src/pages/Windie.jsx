@@ -8,7 +8,7 @@ import { useWindie } from "@/context/WindieContext";
 
 export default function Windie() {
   const { createConversation } = useWindie();
-  const [activeSidebarView, setActiveSidebarView] = useState("conversations");
+  const [activeSidebarView, setActiveSidebarView] = useState(null);
   const [selectedExtensionId, setSelectedExtensionId] = useState(null);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     try {
