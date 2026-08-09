@@ -72,7 +72,7 @@ export default function Sidebar({ activeView, sidebarWidth, onResizeStart, onSel
         title="resize sidebar"
         data-testid="windie-sidebar-resize"
         onMouseDown={onResizeStart}
-        className="absolute inset-y-0 right-0 z-10 w-1 cursor-col-resize bg-transparent hover:bg-[hsl(var(--accent))]/50"
+        className="absolute inset-y-0 right-0 z-10 w-1 cursor-col-resize bg-transparent"
       />
     </aside>
   );
