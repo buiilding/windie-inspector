@@ -457,6 +457,8 @@ export function WindieProvider({ children }) {
     llmProviders,
     llmProviderKeysByName,
     llmProvidersLoading,
+    llmProvidersLoaded,
+    hasReadyEnabledLlmProvider,
     refreshLlmProviders,
     setupReadinessKnown,
     setupComplete,

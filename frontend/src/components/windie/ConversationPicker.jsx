@@ -16,7 +16,7 @@ function conversationLabel(conv) {
   return conv.name || `conversation ${shortId(conv.id)}`;
 }
 
-export default function ConversationPicker({ variant = "topbar", dropUp = false, onSelectConversation }) {
+export default function ConversationPicker({ variant = "topbar", dropUp = false, onSelectConversation, onNavigate }) {
   const inSidebar = variant === "sidebar";
   const {
     conversations,
@@ -25,6 +25,8 @@ export default function ConversationPicker({ variant = "topbar", dropUp = false,
     selectConversation,
     createConversation,
     deleteConversation,
+    llmProvidersLoaded,
+    hasReadyEnabledLlmProvider,
   } = useWindie();
 
   const [open, setOpen] = useState(false);
@@ -87,11 +89,22 @@ export default function ConversationPicker({ variant = "topbar", dropUp = false,
   }, [activeConvId, conversations, query]);
 
   const handleCreate = async () => {
-    const id = await createConversation();
-    if (id) {
-      onSelectConversation?.();
-      toast.message("new conversation created", { description: shortId(id) });
-      setOpen(false);
+    if (llmProvidersLoaded && !hasReadyEnabledLlmProvider) {
+      onNavigate?.("llms");
+      toast.message("configure an LLM provider first");
+      return;
+    }
+    try {
+      const id = await createConversation();
+      if (id) {
+        onSelectConversation?.();
+        toast.message("new conversation created", { description: shortId(id) });
+        setOpen(false);
+      }
+    } catch (error) {
+      toast.error("unable to create conversation", {
+        description: error?.message || String(error),
+      });
     }
   };
 

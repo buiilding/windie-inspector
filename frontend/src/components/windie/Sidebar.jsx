@@ -18,7 +18,7 @@ function View({ active, children, label }) {
   );
 }
 
-export default function Sidebar({ activeView, sidebarWidth, onResizeStart, onSelectExtension, onSelectConversation, selectedExtensionId }) {
+export default function Sidebar({ activeView, sidebarWidth, onResizeStart, onSelectExtension, onSelectConversation, onNavigate, selectedExtensionId }) {
   const { activeConv } = useWindie();
 
   return (
@@ -28,7 +28,7 @@ export default function Sidebar({ activeView, sidebarWidth, onResizeStart, onSel
       className="relative min-w-0 shrink-0 overflow-hidden border-r border-border bg-background"
     >
       <View active={activeView === "conversations"} label="Conversations">
-        <ConversationPicker variant="sidebar" onSelectConversation={onSelectConversation} />
+        <ConversationPicker variant="sidebar" onSelectConversation={onSelectConversation} onNavigate={onNavigate} />
       </View>
       <View active={activeView === "tree"} label="Conversation Graph">
         <div className="flex h-full min-h-0 flex-col">

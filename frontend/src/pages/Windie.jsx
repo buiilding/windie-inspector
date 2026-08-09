@@ -79,6 +79,7 @@ export default function Windie() {
             onResizeStart={startSidebarResize}
             onSelectExtension={setSelectedExtensionId}
             onSelectConversation={() => setSelectedExtensionId(null)}
+            onNavigate={navigateToSidebarView}
             selectedExtensionId={selectedExtensionId}
           />
         )}
