@@ -175,7 +175,6 @@ export default function ConversationPicker({ variant = "topbar", dropUp = false,
                 className="flex min-w-0 flex-1 items-center gap-2 text-left"
               >
                 <span className="min-w-0 flex-1 truncate">{conv.name || shortId(conv.id)}</span>
-                <span className="max-w-[92px] truncate text-[10px] text-muted-foreground">{conv.model}</span>
                 {active && <Check className="size-3 shrink-0 text-foreground" strokeWidth={2} />}
               </button>
               <button
