@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   Check,
@@ -18,7 +18,11 @@ import {
   Wrench,
 } from "lucide-react";
 import { toast } from "sonner";
-import { checkChromeDevtoolsRemoteDebugging, setEnvValues } from "@/lib/windieApi";
+import {
+  checkChromeDevtoolsRemoteDebugging,
+  openChromeDevtoolsRemoteDebugging,
+  setEnvValues,
+} from "@/lib/windieApi";
 import { useWindie } from "@/context/WindieContext";
 import cuaDarkLogo from "@/assets/provider-icons/cua-dark.svg";
 import cuaLightLogo from "@/assets/provider-icons/cua-light.svg";
@@ -232,38 +236,40 @@ export function ChromeDevToolsConnectionDialog({
   const [stage, setStage] = useState("choice");
   const [error, setError] = useState(null);
 
+  const startExistingSetup = useCallback(() => {
+    onClose();
+    void onConfirm("existing").catch(() => {});
+  }, [onClose, onConfirm]);
+
   useEffect(() => {
     if (stage !== "waiting_for_chrome") return undefined;
     let cancelled = false;
     let timer;
+
     const poll = async () => {
       try {
-        const result = await checkChromeDevtoolsRemoteDebugging();
+        const status = await checkChromeDevtoolsRemoteDebugging();
         if (cancelled) return;
-        if (result.available) {
-          setStage("connecting");
-          try {
-            await onConfirm("existing");
-            if (!cancelled) onClose();
-          } catch (submitError) {
-            if (!cancelled) {
-              setStage("error");
-              setError(submitError.message);
-            }
-          }
+        if (status.available) {
+          startExistingSetup();
           return;
         }
-      } catch (pollError) {
-        if (!cancelled) setError(pollError.message);
+      } catch (checkError) {
+        if (!cancelled) {
+          setStage("error");
+          setError(checkError.message);
+        }
+        return;
       }
       if (!cancelled) timer = window.setTimeout(poll, 700);
     };
+
     poll();
     return () => {
       cancelled = true;
       if (timer) window.clearTimeout(timer);
     };
-  }, [onClose, onConfirm, stage]);
+  }, [stage, startExistingSetup]);
 
   const chooseManaged = async () => {
     setStage("connecting");
@@ -277,10 +283,32 @@ export function ChromeDevToolsConnectionDialog({
     }
   };
 
-  const openChromeSettings = () => {
+  const chooseExisting = async () => {
+    setMode("existing");
+    setError(null);
+    setStage("checking_chrome");
+    try {
+      const status = await checkChromeDevtoolsRemoteDebugging();
+      if (status.available) {
+        startExistingSetup();
+      } else {
+        setStage("choice");
+      }
+    } catch (checkError) {
+      setStage("error");
+      setError(checkError.message);
+    }
+  };
+
+  const openChromeSettings = async () => {
     setError(null);
     setStage("waiting_for_chrome");
-    window.open("chrome://inspect/#remote-debugging", "_blank", "noopener,noreferrer");
+    try {
+      await openChromeDevtoolsRemoteDebugging();
+    } catch (openError) {
+      setStage("error");
+      setError(openError.message);
+    }
   };
 
   const title = action === "configure" ? "Configure Chrome DevTools" : "Install Chrome DevTools";
@@ -315,7 +343,7 @@ export function ChromeDevToolsConnectionDialog({
             </button>
             <button
               type="button"
-              onClick={() => setMode("existing")}
+              onClick={chooseExisting}
               className={`w-full border px-3 py-3 text-left ${mode === "existing" ? "border-foreground bg-surface" : "border-border hover:bg-surface-hover"}`}
             >
               <span className="block font-mono text-[11px] uppercase tracking-widest">Use my existing Chrome</span>
@@ -334,13 +362,23 @@ export function ChromeDevToolsConnectionDialog({
           </div>
         ) : null}
 
+        {stage === "checking_chrome" ? (
+          <div className="mt-6 space-y-3 border border-accent/30 bg-accent/8 px-4 py-4">
+            <div className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest">
+              <Loader2 className="size-3 animate-spin" />
+              checking Chrome remote debugging
+            </div>
+            <p className="text-[11px] leading-relaxed text-muted-foreground">Checking whether Chrome is already listening on 127.0.0.1:9222.</p>
+          </div>
+        ) : null}
+
         {stage === "waiting_for_chrome" ? (
           <div className="mt-6 space-y-3 border border-accent/30 bg-accent/8 px-4 py-4">
             <div className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest">
               <Loader2 className="size-3 animate-spin" />
-              waiting for server confirmation
+              waiting for Chrome remote debugging
             </div>
-            <p className="text-[11px] leading-relaxed text-muted-foreground">In Chrome, enable “Allow remote debugging for this browser instance.” Windie is checking 127.0.0.1:9222.</p>
+            <p className="text-[11px] leading-relaxed text-muted-foreground">Enable “Allow remote debugging for this browser instance” in Chrome. Windie will continue automatically when 127.0.0.1:9222 is available.</p>
             <button type="button" onClick={onClose} className="h-8 border border-border px-3 font-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:bg-surface-hover hover:text-foreground">cancel</button>
           </div>
         ) : null}
@@ -351,7 +389,8 @@ export function ChromeDevToolsConnectionDialog({
               <Loader2 className="size-3 animate-spin" />
               waiting for Chrome approval
             </div>
-            <p className="text-[11px] leading-relaxed text-muted-foreground">Chrome DevTools MCP is requesting access. Approve the connection in Chrome, then Windie will verify the MCP tools.</p>
+            <p className="text-[11px] leading-relaxed text-muted-foreground">Enable “Allow remote debugging for this browser instance” in Chrome, then approve the Chrome DevTools MCP request. Windie will verify the MCP tools after approval.</p>
+            <button type="button" onClick={onClose} className="h-8 border border-border px-3 font-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:bg-surface-hover hover:text-foreground">cancel</button>
           </div>
         ) : null}
 

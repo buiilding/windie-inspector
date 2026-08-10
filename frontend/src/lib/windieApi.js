@@ -244,6 +244,13 @@ export async function setupProvider(providerId, chromeDevtoolsMode = null) {
   });
 }
 
+export async function openChromeDevtoolsRemoteDebugging() {
+  return apiRequest("/api/providers/chrome-devtools/open-remote-debugging", {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
 export async function checkChromeDevtoolsRemoteDebugging() {
   return apiRequest("/api/providers/chrome-devtools/remote-debugging");
 }
