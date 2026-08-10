@@ -27,11 +27,13 @@ import blenderLogo from "@/assets/provider-icons/blender.svg";
 import brightDataLogo from "@/assets/provider-icons/brightdata.svg";
 import basicMemoryDarkLogo from "@/assets/provider-icons/basic-memory-dark.svg";
 import basicMemoryLightLogo from "@/assets/provider-icons/basic-memory-light.svg";
+import chromeDevtoolsLogo from "@/assets/provider-icons/chrome-devtools.svg";
 
 const providerIcons = {
   "desktop-commander": desktopCommanderLogo,
   "blender-mcp": blenderLogo,
   brightdata: brightDataLogo,
+  "chrome-devtools": chromeDevtoolsLogo,
 };
 
 export function providerOnboardingNote(providerId) {
