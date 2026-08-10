@@ -27,6 +27,8 @@ import blenderLogo from "@/assets/provider-icons/blender.svg";
 import brightDataLogo from "@/assets/provider-icons/brightdata.svg";
 import basicMemoryDarkLogo from "@/assets/provider-icons/basic-memory-dark.svg";
 import basicMemoryLightLogo from "@/assets/provider-icons/basic-memory-light.svg";
+import parallelDarkLogo from "@/assets/provider-icons/parallel-dark.svg";
+import parallelLightLogo from "@/assets/provider-icons/parallel-light.svg";
 import chromeDevtoolsLogo from "@/assets/provider-icons/chrome-devtools.svg";
 
 const providerIcons = {
@@ -116,6 +118,8 @@ export function extensionVisual(providerId, theme) {
     ? theme === "dark" ? cuaDarkLogo : cuaLightLogo
     : providerId === "basic-memory"
       ? theme === "dark" ? basicMemoryDarkLogo : basicMemoryLightLogo
+      : providerId === "parallel-search"
+        ? theme === "dark" ? parallelDarkLogo : parallelLightLogo
       : providerIcons[providerId];
   return {
     providerIcon,
