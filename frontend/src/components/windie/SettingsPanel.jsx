@@ -45,7 +45,7 @@ export default function SettingsPanel() {
   } = useWindie();
   const [systemPrompt, setSystemPromptDraft] = useState(activeConv?.systemPrompt || "");
   const [pendingActions, setPendingActions] = useState([]);
-  const [collapsedProviders, setCollapsedProviders] = useState(new Set());
+  const [expandedProviders, setExpandedProviders] = useState(new Set());
   const pendingRef = useRef(new Set());
 
   useEffect(() => {
@@ -97,7 +97,7 @@ export default function SettingsPanel() {
   };
 
   const toggleProvider = (providerId) => {
-    setCollapsedProviders((current) => {
+    setExpandedProviders((current) => {
       const next = new Set(current);
       if (next.has(providerId)) next.delete(providerId);
       else next.add(providerId);
@@ -183,7 +183,7 @@ export default function SettingsPanel() {
       <Section title={`available tool schemas · ${availableToolsLoading ? "loading" : availableToolSchemas.length}`} defaultOpen={false}>
         <div className="space-y-2">
           {groupedTools.map(({ providerId, tools }) => {
-            const collapsed = collapsedProviders.has(providerId);
+            const collapsed = !expandedProviders.has(providerId);
             const unattached = tools.filter((schema) => !attachedNames.has(schema.name));
             const attached = tools.filter((schema) => attachedNames.has(schema.name));
             const groupPending = pendingSet.has(`add-provider:${providerId}`) || pendingSet.has(`remove-provider:${providerId}`);
@@ -195,7 +195,6 @@ export default function SettingsPanel() {
                     onClick={() => toggleProvider(providerId)}
                     className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
                   >
-                    {collapsed ? <ChevronRight className="size-3" /> : <ChevronDown className="size-3" />}
                     <span className="min-w-0">
                       <span className="block truncate font-mono text-[10px] uppercase">{providerId}</span>
                       <span className="block font-mono text-[9px] text-muted-foreground">{tools.length} tools</span>

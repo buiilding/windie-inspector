@@ -8,6 +8,7 @@ export function conversationSummaryFromApi(summary) {
     rootId: null,
     nodes: {},
     selectedPath: [],
+    inspectionLoaded: false,
     updatedAt: new Date().toISOString(),
     tags: [],
     messageCount: summary.message_count || 0,
@@ -25,6 +26,8 @@ export function toolProviderStatusesFromApi(body) {
     displayName: provider.display_name || provider.provider_id,
     available: Boolean(provider.available),
     toolCount: provider.tool_count ?? 0,
+    catalogStatus: provider.catalog_status || "unavailable",
+    discoveredAt: provider.discovered_at || null,
     error: provider.error || null,
   }));
 }
@@ -36,6 +39,7 @@ export function providerInstallationsFromApi(body) {
     displayName: provider.manifest?.display_name || provider.manifest?.provider_id || "Unknown extension",
     author: provider.manifest?.author || provider.manifest?.provider_id || "Unknown author",
     description: provider.manifest?.description || "",
+    readmeMarkdown: provider.manifest?.readme_markdown || "",
     kind: provider.manifest?.kind || "mcp",
     transport: provider.manifest?.transport || "stdio",
     runtime: provider.manifest?.runtime || "native",
@@ -47,10 +51,19 @@ export function providerInstallationsFromApi(body) {
     tags: provider.manifest?.tags || [],
     documentationUrl: provider.manifest?.documentation_url || null,
     setupGuide: provider.manifest?.setup_guide || [],
+    toolCatalog: provider.tool_catalog
+      ? {
+          tools: (provider.tool_catalog.tools || []).map(toolSchemaFromApi),
+          status: provider.tool_catalog.status || "unavailable",
+          discoveredAt: provider.tool_catalog.discovered_at || null,
+          error: provider.tool_catalog.last_error || null,
+        }
+      : null,
     platforms: provider.manifest?.platforms || [],
     dependencies: provider.manifest?.dependencies || [],
     secrets: provider.manifest?.secrets || [],
     permissions: provider.manifest?.permissions || [],
+    chromeDevtoolsMode: provider.chrome_devtools_mode || null,
     installation: provider.installation
       ? {
           state: provider.installation.state,
@@ -127,6 +140,7 @@ export function conversationFromInspection(report, fallback) {
     rootIds,
     nodes,
     selectedPath,
+    inspectionLoaded: true,
     updatedAt: new Date().toISOString(),
     tags: fallback?.tags || [],
     messageCount: Object.keys(nodes).length,

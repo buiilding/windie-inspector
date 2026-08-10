@@ -8,6 +8,7 @@ import { fetchImageAsset } from "@/lib/windieApi";
 import { ROLE_TOKENS } from "@/lib/mockData";
 import {
   GitBranch,
+  GitFork,
   Scissors,
   Trash2,
   Pencil,
@@ -17,7 +18,6 @@ import {
   Check,
   X,
   Image as ImageIcon,
-  Target,
   ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -487,7 +487,7 @@ export default function MessageRow({ node, index, isLast }) {
           <div className="absolute left-[6.25rem] bottom-3.5 z-10 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity flex items-center gap-0.5">
             <button
               data-testid={`msg-action-set-path-${node.id}`}
-              title="set path head"
+              title="branch"
               onClick={(e) => {
                 e.stopPropagation();
                 void setPathHead(node.id).then((result) => {
@@ -499,7 +499,7 @@ export default function MessageRow({ node, index, isLast }) {
               }}
               className="p-1 border border-transparent hover:border-border hover:bg-surface-hover"
             >
-              <Target className="size-3.5" strokeWidth={1.75} />
+              <GitBranch className="size-3.5" strokeWidth={1.75} />
             </button>
             <button
               data-testid={`msg-action-fork-${node.id}`}
@@ -512,7 +512,7 @@ export default function MessageRow({ node, index, isLast }) {
               }}
               className="p-1 border border-transparent hover:border-border hover:bg-surface-hover"
             >
-              <GitBranch className="size-3.5" strokeWidth={1.75} />
+              <GitFork className="size-3.5" strokeWidth={1.75} />
             </button>
             <button
               data-testid={`msg-action-truncate-${node.id}`}

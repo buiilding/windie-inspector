@@ -8,7 +8,7 @@ import { useWindie } from "@/context/WindieContext";
 
 export default function Windie() {
   const { createConversation } = useWindie();
-  const [activeSidebarView, setActiveSidebarView] = useState("conversations");
+  const [activeSidebarView, setActiveSidebarView] = useState(null);
   const [selectedExtensionId, setSelectedExtensionId] = useState(null);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     try {
@@ -22,6 +22,10 @@ export default function Windie() {
   const navigateToSidebarView = useCallback((view) => {
     setActiveSidebarView(view);
     setSelectedExtensionId(null);
+  }, []);
+
+  const handleActivityBarViewChange = useCallback((view) => {
+    setActiveSidebarView((current) => (current === view ? null : view));
   }, []);
 
   const continueWithNewChat = useCallback(async () => {
@@ -67,15 +71,18 @@ export default function Windie() {
     >
       <TopBar />
       <div className="flex-1 min-h-0 flex">
-        <ActivityBar activeView={activeSidebarView} onViewChange={setActiveSidebarView} />
-        <Sidebar
-          activeView={activeSidebarView}
-          sidebarWidth={sidebarWidth}
-          onResizeStart={startSidebarResize}
-          onSelectExtension={setSelectedExtensionId}
-          onSelectConversation={() => setSelectedExtensionId(null)}
-          selectedExtensionId={selectedExtensionId}
-        />
+        <ActivityBar activeView={activeSidebarView} onViewChange={handleActivityBarViewChange} />
+        {activeSidebarView && (
+          <Sidebar
+            activeView={activeSidebarView}
+            sidebarWidth={sidebarWidth}
+            onResizeStart={startSidebarResize}
+            onSelectExtension={setSelectedExtensionId}
+            onSelectConversation={() => setSelectedExtensionId(null)}
+            onNavigate={navigateToSidebarView}
+            selectedExtensionId={selectedExtensionId}
+          />
+        )}
         <div className="flex-1 min-w-0 relative flex">
           <div className="flex-1 min-w-0 relative flex flex-col min-h-0">
             {selectedExtensionId ? (

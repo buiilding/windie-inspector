@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   apiRequest,
+  configureProvider as configureProviderApi,
   disableProvider as disableProviderApi,
   enableProvider as enableProviderApi,
   listProviderInstallations,
@@ -66,6 +67,9 @@ export function useToolCatalog({ onError }) {
         const result = await action(providerId);
         await refreshProviderInstallations();
         await refreshAvailableTools();
+        if (result?.installation?.state === "broken") {
+          throw new Error(result.installation.error || "provider setup did not pass its readiness check");
+        }
         return result;
       } catch (error) {
         onError(error);
@@ -79,7 +83,19 @@ export function useToolCatalog({ onError }) {
   );
 
   const setupProvider = useCallback(
-    (providerId) => runProviderAction(setupProviderApi, providerId),
+    (providerId, chromeDevtoolsMode = null) =>
+      runProviderAction(
+        (id) => setupProviderApi(id, chromeDevtoolsMode),
+        providerId
+      ),
+    [runProviderAction]
+  );
+  const configureProvider = useCallback(
+    (providerId, chromeDevtoolsMode) =>
+      runProviderAction(
+        (id) => configureProviderApi(id, chromeDevtoolsMode),
+        providerId
+      ),
     [runProviderAction]
   );
   const enableProvider = useCallback(
@@ -109,6 +125,7 @@ export function useToolCatalog({ onError }) {
     refreshAvailableTools,
     refreshProviderInstallations,
     setupProvider,
+    configureProvider,
     enableProvider,
     disableProvider,
     repairProvider,

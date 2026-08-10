@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { GitBranch, Scissors, Trash2 } from "lucide-react";
+import { GitFork, Scissors, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useWindie } from "@/context/WindieContext";
 
@@ -70,7 +70,7 @@ export default function TreeNodeContextMenu({ nodeId, position, onClose }) {
         onClick={() => void run(forkFromMessage, "forked")}
         className="w-full px-3 py-2 flex items-center gap-2 text-left font-mono text-[10px] uppercase tracking-widest hover:bg-surface-hover"
       >
-        <GitBranch className="size-3" />
+        <GitFork className="size-3" />
         fork
       </button>
       <button

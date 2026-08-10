@@ -6,18 +6,19 @@ import SettingsPanel from "@/components/windie/SettingsPanel";
 import TreePanel from "@/components/windie/TreePanel";
 
 function View({ active, children, label }) {
+  if (!active) return null;
+
   return (
     <div
       aria-label={label}
-      aria-hidden={!active}
-      className={`h-full min-h-0 ${active ? "block" : "hidden"}`}
+      className="h-full min-h-0"
     >
       {children}
     </div>
   );
 }
 
-export default function Sidebar({ activeView, sidebarWidth, onResizeStart, onSelectExtension, onSelectConversation, selectedExtensionId }) {
+export default function Sidebar({ activeView, sidebarWidth, onResizeStart, onSelectExtension, onSelectConversation, onNavigate, selectedExtensionId }) {
   const { activeConv } = useWindie();
 
   return (
@@ -27,16 +28,23 @@ export default function Sidebar({ activeView, sidebarWidth, onResizeStart, onSel
       className="relative min-w-0 shrink-0 overflow-hidden border-r border-border bg-background"
     >
       <View active={activeView === "conversations"} label="Conversations">
-        <ConversationPicker variant="sidebar" onSelectConversation={onSelectConversation} />
+        <ConversationPicker variant="sidebar" onSelectConversation={onSelectConversation} onNavigate={onNavigate} />
       </View>
-      <View active={activeView === "tree"} label="Conversation tree">
-        {activeConv ? (
-          <TreePanel />
-        ) : (
-          <div className="flex h-full items-center justify-center px-5 text-center font-mono text-[11px] text-muted-foreground">
-            select a conversation to view its tree
+      <View active={activeView === "tree"} label="Conversation Graph">
+        <div className="flex h-full min-h-0 flex-col">
+          <div className="flex h-11 shrink-0 items-center border-b border-border px-3">
+            <span className="font-sans text-base font-medium tracking-tight">Conversation Graph</span>
           </div>
-        )}
+          <div className="min-h-0 flex-1">
+            {activeConv ? (
+              <TreePanel />
+            ) : (
+              <div className="flex h-full items-center justify-center px-5 text-center font-mono text-[11px] text-muted-foreground">
+                select a conversation to view its graph
+              </div>
+            )}
+          </div>
+        </div>
       </View>
       <View active={activeView === "extensions"} label="Extensions">
         <ExtensionsPanel
@@ -45,9 +53,14 @@ export default function Sidebar({ activeView, sidebarWidth, onResizeStart, onSel
           selectedExtensionId={selectedExtensionId}
         />
       </View>
-      <View active={activeView === "llms"} label="LLMs">
-        <div className="h-full overflow-y-auto windie-scroll">
-          <LlmProvidersPanel />
+      <View active={activeView === "llms"} label="LLM Providers">
+        <div className="flex h-full min-h-0 flex-col">
+          <div className="flex h-11 shrink-0 items-center border-b border-border px-3">
+            <span className="font-sans text-base font-medium tracking-tight">LLM Providers</span>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto windie-scroll">
+            <LlmProvidersPanel />
+          </div>
         </div>
       </View>
       <View active={activeView === "settings"} label="Settings">
@@ -59,7 +72,7 @@ export default function Sidebar({ activeView, sidebarWidth, onResizeStart, onSel
         title="resize sidebar"
         data-testid="windie-sidebar-resize"
         onMouseDown={onResizeStart}
-        className="absolute inset-y-0 right-0 z-10 w-1 cursor-col-resize bg-transparent hover:bg-[hsl(var(--accent))]/50"
+        className="absolute inset-y-0 right-0 z-10 w-1 cursor-col-resize bg-transparent"
       />
     </aside>
   );

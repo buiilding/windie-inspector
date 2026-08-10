@@ -87,7 +87,7 @@ function LiveExecutionIndicator({ count }) {
 export default function ChatPanel({ onFirstMessage, onNavigate, onContinue }) {
   const { activeConv, selectedSession, selectedPathNodes, streaming, pendingAssistant, stopStreaming, apiError, setupComplete } = useWindie();
   const scrollRef = useRef(null);
-  const prevConvId = useRef(activeConv?.id);
+  const lastScrolledConversationId = useRef(null);
   const [expandedExecutionGroups, setExpandedExecutionGroups] = useState(() => new Set());
   const [creatingConversation, setCreatingConversation] = useState(false);
   const items = useMemo(() => transcriptItems(selectedPathNodes), [selectedPathNodes]);
@@ -120,27 +120,21 @@ export default function ChatPanel({ onFirstMessage, onNavigate, onContinue }) {
     }
   };
 
-  // Scroll behavior:
-  //   - On conversation switch: reset scroll to top (do NOT auto-scroll to bottom;
-  //     that used to cause window/ancestor scroll on narrow viewports).
-  //   - On new messages / streaming within the same conversation: pin to bottom.
-  // We drive the scroll directly via scrollTop on our own container so the effect
-  // never propagates to ancestor scroll contexts.
+  // Start each selected conversation at its latest transcript content. Once the
+  // conversation is selected, preserve the user's scroll position across new
+  // messages and streaming updates.
   useEffect(() => {
     const el = scrollRef.current;
-    if (!el) return;
-    if (prevConvId.current !== activeConv?.id) {
-      el.scrollTop = 0;
-      prevConvId.current = activeConv?.id;
-    } else {
-      el.scrollTop = el.scrollHeight;
+    if (
+      !el ||
+      !activeConv?.inspectionLoaded ||
+      lastScrolledConversationId.current === activeConv.id
+    ) {
+      return;
     }
-  }, [
-    activeConv?.id,
-    selectedPathNodes.length,
-    streaming,
-    pendingAssistant,
-  ]);
+    el.scrollTop = el.scrollHeight;
+    lastScrolledConversationId.current = activeConv.id;
+  }, [activeConv?.id, activeConv?.inspectionLoaded]);
 
   if (!activeConv) {
     return (

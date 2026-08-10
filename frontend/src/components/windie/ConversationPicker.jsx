@@ -16,7 +16,7 @@ function conversationLabel(conv) {
   return conv.name || `conversation ${shortId(conv.id)}`;
 }
 
-export default function ConversationPicker({ variant = "topbar", dropUp = false, onSelectConversation }) {
+export default function ConversationPicker({ variant = "topbar", dropUp = false, onSelectConversation, onNavigate }) {
   const inSidebar = variant === "sidebar";
   const {
     conversations,
@@ -25,6 +25,8 @@ export default function ConversationPicker({ variant = "topbar", dropUp = false,
     selectConversation,
     createConversation,
     deleteConversation,
+    llmProvidersLoaded,
+    hasReadyEnabledLlmProvider,
   } = useWindie();
 
   const [open, setOpen] = useState(false);
@@ -57,6 +59,23 @@ export default function ConversationPicker({ variant = "topbar", dropUp = false,
     };
   }, [inSidebar, open]);
 
+  useEffect(() => {
+    if (!menuConversation) return undefined;
+    const handleClick = (event) => {
+      if (event.target.closest("[data-conv-menu-toggle]")) return;
+      setMenuConversation(null);
+    };
+    const handleKey = (event) => {
+      if (event.key === "Escape") setMenuConversation(null);
+    };
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [menuConversation]);
+
   const sorted = useMemo(() => {
     const q = query.trim().toLowerCase();
     const filtered = q
@@ -70,11 +89,22 @@ export default function ConversationPicker({ variant = "topbar", dropUp = false,
   }, [activeConvId, conversations, query]);
 
   const handleCreate = async () => {
-    const id = await createConversation();
-    if (id) {
-      onSelectConversation?.();
-      toast.message("new conversation created", { description: shortId(id) });
-      setOpen(false);
+    if (llmProvidersLoaded && !hasReadyEnabledLlmProvider) {
+      onNavigate?.("llms");
+      toast.message("configure an LLM provider first");
+      return;
+    }
+    try {
+      const id = await createConversation();
+      if (id) {
+        onSelectConversation?.();
+        toast.message("new conversation created", { description: shortId(id) });
+        setOpen(false);
+      }
+    } catch (error) {
+      toast.error("unable to create conversation", {
+        description: error?.message || String(error),
+      });
     }
   };
 
@@ -145,11 +175,11 @@ export default function ConversationPicker({ variant = "topbar", dropUp = false,
                 className="flex min-w-0 flex-1 items-center gap-2 text-left"
               >
                 <span className="min-w-0 flex-1 truncate">{conv.name || shortId(conv.id)}</span>
-                <span className="max-w-[92px] truncate text-[10px] text-muted-foreground">{conv.model}</span>
                 {active && <Check className="size-3 shrink-0 text-foreground" strokeWidth={2} />}
               </button>
               <button
                 type="button"
+                data-conv-menu-toggle="true"
                 data-testid={`${inSidebar ? "sidebar" : "topbar"}-conv-menu-${shortId(conv.id)}`}
                 aria-label={`conversation actions ${shortId(conv.id)}`}
                 title="conversation actions"
