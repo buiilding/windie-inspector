@@ -62,6 +62,7 @@ export function providerInstallationsFromApi(body) {
     dependencies: provider.manifest?.dependencies || [],
     secrets: provider.manifest?.secrets || [],
     permissions: provider.manifest?.permissions || [],
+    chromeDevtoolsMode: provider.chrome_devtools_mode || null,
     installation: provider.installation
       ? {
           state: provider.installation.state,

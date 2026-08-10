@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Sparkles } from "lucide-react";
 import { useWindie } from "@/context/WindieContext";
 
 function formatArguments(argumentsValue) {
@@ -15,8 +16,16 @@ function formatArguments(argumentsValue) {
  * component only displays pending records and forwards the user's decision.
  */
 export default function ToolApprovalPrompt() {
-  const { approvals, selectedSession, approveToolCall, denyToolCall } = useWindie();
+  const {
+    activeConv,
+    approvals,
+    selectedSession,
+    approveToolCall,
+    denyToolCall,
+    setToolApprovalMode,
+  } = useWindie();
   const [pendingToolCallIds, setPendingToolCallIds] = useState(() => new Set());
+  const [fullAccessPending, setFullAccessPending] = useState(false);
 
   const pendingApprovals = useMemo(
     () => approvals.filter((approval) => approval.session_id === selectedSession?.id),
@@ -26,7 +35,7 @@ export default function ToolApprovalPrompt() {
   if (!selectedSession || pendingApprovals.length === 0) return null;
 
   const runDecision = async (approval, decision) => {
-    if (pendingToolCallIds.has(approval.tool_call_id)) return;
+    if (fullAccessPending || pendingToolCallIds.has(approval.tool_call_id)) return;
     setPendingToolCallIds((current) => new Set(current).add(approval.tool_call_id));
     try {
       if (decision === "approve") {
@@ -40,6 +49,19 @@ export default function ToolApprovalPrompt() {
         next.delete(approval.tool_call_id);
         return next;
       });
+    }
+  };
+
+  const enableFullAccess = async () => {
+    if (!activeConv?.id || fullAccessPending || pendingToolCallIds.size > 0) return;
+    setFullAccessPending(true);
+    try {
+      // The API resumes approval-waiting sessions after this mode change. The
+      // current pending call therefore proceeds under the new conversation
+      // policy, and later calls no longer require an approval prompt.
+      await setToolApprovalMode(activeConv.id, "auto_approve_attached");
+    } finally {
+      setFullAccessPending(false);
     }
   };
 
@@ -60,7 +82,7 @@ export default function ToolApprovalPrompt() {
 
       <div className="mt-2 space-y-2">
         {pendingApprovals.map((approval) => {
-          const pending = pendingToolCallIds.has(approval.tool_call_id);
+          const pending = fullAccessPending || pendingToolCallIds.has(approval.tool_call_id);
           return (
             <div
               key={approval.tool_call_id}
@@ -84,7 +106,7 @@ export default function ToolApprovalPrompt() {
                 <pre className="max-h-32 overflow-auto whitespace-pre-wrap border border-border bg-surface/60 p-2 font-mono text-[10px]">
                   {formatArguments(approval.arguments)}
                 </pre>
-                <div className="grid grid-cols-2 gap-1.5">
+                <div className="grid grid-cols-3 gap-1.5">
                   <button
                     type="button"
                     data-testid={`approval-prompt-approve-${approval.tool_call_id}`}
@@ -102,6 +124,17 @@ export default function ToolApprovalPrompt() {
                     className="h-8 border border-border font-mono text-[10px] uppercase tracking-widest text-[hsl(var(--destructive))] disabled:cursor-wait disabled:opacity-60"
                   >
                     deny
+                  </button>
+                  <button
+                    type="button"
+                    data-testid={`approval-prompt-full-access-${approval.tool_call_id}`}
+                    aria-label="enable full access"
+                    disabled={pending}
+                    onClick={enableFullAccess}
+                    className="inline-flex h-8 items-center justify-center border border-[hsl(var(--tool-call))] font-mono text-[10px] uppercase tracking-widest text-[hsl(var(--tool-call))] hover:bg-[hsl(var(--tool-call))]/10 disabled:cursor-wait disabled:opacity-60"
+                  >
+                    <Sparkles className="mr-1.5 size-3" aria-hidden="true" />
+                    full access
                   </button>
                 </div>
               </div>

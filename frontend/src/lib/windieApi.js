@@ -237,10 +237,21 @@ export async function setEnvValues(assignments) {
   });
 }
 
-export async function setupProvider(providerId) {
+export async function setupProvider(providerId, chromeDevtoolsMode = null) {
   return apiRequest(`/api/providers/${encodeURIComponent(providerId)}/setup`, {
     method: "POST",
-    body: JSON.stringify({}),
+    body: JSON.stringify({ chrome_devtools_mode: chromeDevtoolsMode }),
+  });
+}
+
+export async function checkChromeDevtoolsRemoteDebugging() {
+  return apiRequest("/api/providers/chrome-devtools/remote-debugging");
+}
+
+export async function configureProvider(providerId, chromeDevtoolsMode) {
+  return apiRequest(`/api/providers/${encodeURIComponent(providerId)}/configuration`, {
+    method: "POST",
+    body: JSON.stringify({ chrome_devtools_mode: chromeDevtoolsMode }),
   });
 }
 
