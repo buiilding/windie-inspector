@@ -67,6 +67,9 @@ export function useToolCatalog({ onError }) {
         const result = await action(providerId);
         await refreshProviderInstallations();
         await refreshAvailableTools();
+        if (result?.installation?.state === "broken") {
+          throw new Error(result.installation.error || "provider setup did not pass its readiness check");
+        }
         return result;
       } catch (error) {
         onError(error);

@@ -18,7 +18,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { toast } from "sonner";
-import { setEnvValues } from "@/lib/windieApi";
+import { checkChromeDevtoolsRemoteDebugging, setEnvValues } from "@/lib/windieApi";
 import { useWindie } from "@/context/WindieContext";
 import cuaDarkLogo from "@/assets/provider-icons/cua-dark.svg";
 import cuaLightLogo from "@/assets/provider-icons/cua-light.svg";
@@ -38,12 +38,15 @@ const providerIcons = {
   "chrome-devtools": chromeDevtoolsLogo,
 };
 
-export function providerOnboardingNote(providerId) {
+export function providerOnboardingNote(providerId, chromeDevtoolsMode = "managed") {
   if (providerId === "parallel-search") {
     return "Parallel Search works anonymously for basic usage. Add a Parallel API key for higher rate limits; it is stored locally in ~/.windie/.env.";
   }
   if (providerId !== "chrome-devtools") return null;
 
+  if (chromeDevtoolsMode === "existing") {
+    return "Windie connects to your already-running Chrome only after you enable remote debugging and approve Chrome DevTools MCP's request. Configure the provider to switch back to a Windie-managed profile.";
+  }
   return "Windie opens a separate persistent Chrome profile. Log into websites once, and Windie will reuse that browser session in future runs. Your normal Chrome profile and open tabs are not used.";
 }
 
@@ -219,6 +222,149 @@ export function ProviderSecretsForm({ providerId, secrets, disabled }) {
   );
 }
 
+export function ChromeDevToolsConnectionDialog({
+  action,
+  currentMode = "managed",
+  onConfirm,
+  onClose,
+}) {
+  const [mode, setMode] = useState(currentMode || "managed");
+  const [stage, setStage] = useState("choice");
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (stage !== "waiting_for_chrome") return undefined;
+    let cancelled = false;
+    let timer;
+    const poll = async () => {
+      try {
+        const result = await checkChromeDevtoolsRemoteDebugging();
+        if (cancelled) return;
+        if (result.available) {
+          setStage("connecting");
+          try {
+            await onConfirm("existing");
+            if (!cancelled) onClose();
+          } catch (submitError) {
+            if (!cancelled) {
+              setStage("error");
+              setError(submitError.message);
+            }
+          }
+          return;
+        }
+      } catch (pollError) {
+        if (!cancelled) setError(pollError.message);
+      }
+      if (!cancelled) timer = window.setTimeout(poll, 700);
+    };
+    poll();
+    return () => {
+      cancelled = true;
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [onClose, onConfirm, stage]);
+
+  const chooseManaged = async () => {
+    setStage("connecting");
+    setError(null);
+    try {
+      await onConfirm("managed");
+      onClose();
+    } catch (submitError) {
+      setStage("error");
+      setError(submitError.message);
+    }
+  };
+
+  const openChromeSettings = () => {
+    setError(null);
+    setStage("waiting_for_chrome");
+    window.open("chrome://inspect/#remote-debugging", "_blank", "noopener,noreferrer");
+  };
+
+  const title = action === "configure" ? "Configure Chrome DevTools" : "Install Chrome DevTools";
+  const connecting = stage === "connecting";
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-background/75 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-lg border border-border bg-background p-5 shadow-xl">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="font-sans text-lg font-medium tracking-tight">{title}</h2>
+            <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+              choose browser ownership
+            </p>
+          </div>
+          {stage !== "connecting" ? (
+            <button type="button" onClick={onClose} className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">
+              close
+            </button>
+          ) : null}
+        </div>
+
+        {stage === "choice" || stage === "error" ? (
+          <div className="mt-5 space-y-3">
+            <button
+              type="button"
+              onClick={chooseManaged}
+              className={`w-full border px-3 py-3 text-left ${mode === "managed" ? "border-foreground bg-surface" : "border-border hover:bg-surface-hover"}`}
+            >
+              <span className="block font-mono text-[11px] uppercase tracking-widest">Use Windie-managed Chrome</span>
+              <span className="mt-1 block text-[11px] leading-relaxed text-muted-foreground">Windie starts a separate persistent profile. Your normal Chrome tabs and cookies stay isolated.</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("existing")}
+              className={`w-full border px-3 py-3 text-left ${mode === "existing" ? "border-foreground bg-surface" : "border-border hover:bg-surface-hover"}`}
+            >
+              <span className="block font-mono text-[11px] uppercase tracking-widest">Use my existing Chrome</span>
+              <span className="mt-1 block text-[11px] leading-relaxed text-muted-foreground">Windie can inspect and control your currently running Chrome after you explicitly approve the connection.</span>
+            </button>
+            {mode === "existing" && (
+              <div className="border border-accent/30 bg-accent/8 px-3 py-3 text-[11px] leading-relaxed">
+                <p>Open Chrome's remote-debugging settings, enable the checkbox, then leave Chrome running.</p>
+                <button type="button" onClick={openChromeSettings} className="mt-2 inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-widest text-foreground underline underline-offset-4">
+                  open Chrome remote debugging
+                  <ExternalLink className="size-3" />
+                </button>
+              </div>
+            )}
+            {error ? <p className="border border-[hsl(var(--destructive))]/30 px-3 py-2 text-[11px] text-[hsl(var(--destructive))]">{error}</p> : null}
+          </div>
+        ) : null}
+
+        {stage === "waiting_for_chrome" ? (
+          <div className="mt-6 space-y-3 border border-accent/30 bg-accent/8 px-4 py-4">
+            <div className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest">
+              <Loader2 className="size-3 animate-spin" />
+              waiting for server confirmation
+            </div>
+            <p className="text-[11px] leading-relaxed text-muted-foreground">In Chrome, enable “Allow remote debugging for this browser instance.” Windie is checking 127.0.0.1:9222.</p>
+            <button type="button" onClick={onClose} className="h-8 border border-border px-3 font-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:bg-surface-hover hover:text-foreground">cancel</button>
+          </div>
+        ) : null}
+
+        {stage === "connecting" ? (
+          <div className="mt-6 space-y-3 border border-accent/30 bg-accent/8 px-4 py-4">
+            <div className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest">
+              <Loader2 className="size-3 animate-spin" />
+              waiting for Chrome approval
+            </div>
+            <p className="text-[11px] leading-relaxed text-muted-foreground">Chrome DevTools MCP is requesting access. Approve the connection in Chrome, then Windie will verify the MCP tools.</p>
+          </div>
+        ) : null}
+
+        {stage === "error" ? (
+          <div className="mt-4 flex justify-end">
+            <button type="button" onClick={() => { setStage("choice"); setError(null); }} className="h-8 border border-foreground bg-foreground px-3 font-mono text-[10px] uppercase tracking-widest text-background">try again</button>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function ProviderCard({ provider, toolStatus, pending, theme, onAction }) {
   const providerIcon = provider.providerId === "cua-driver"
     ? theme === "dark" ? cuaDarkLogo : cuaLightLogo
@@ -264,12 +410,12 @@ function ProviderCard({ provider, toolStatus, pending, theme, onAction }) {
       <div className="flex flex-1 flex-col gap-4 p-4">
         <p className="text-[12px] leading-relaxed text-muted-foreground">{provider.description}</p>
 
-        {providerOnboardingNote(provider.providerId) ? (
+        {providerOnboardingNote(provider.providerId, provider.chromeDevtoolsMode) ? (
           <div
             data-testid={`provider-onboarding-${provider.providerId}`}
             className="border border-accent/30 bg-accent/8 px-3 py-2 text-[11px] leading-relaxed text-foreground"
           >
-            {providerOnboardingNote(provider.providerId)}
+            {providerOnboardingNote(provider.providerId, provider.chromeDevtoolsMode)}
           </div>
         ) : null}
 
@@ -359,6 +505,16 @@ function ProviderCard({ provider, toolStatus, pending, theme, onAction }) {
 
         {installed && state !== "updating" && !pending && (
           <>
+            {provider.providerId === "chrome-devtools" ? (
+              <button
+                type="button"
+                title="configure Chrome profile"
+                onClick={() => onAction("configure", provider.providerId)}
+                className="grid size-8 place-items-center border border-border text-muted-foreground hover:bg-surface-hover hover:text-foreground"
+              >
+                <Settings className="size-3.5" />
+              </button>
+            ) : null}
             <button
               type="button"
               title="repair extension"
@@ -389,12 +545,14 @@ function FullExtensionsPanel() {
     providerInstallationsLoading,
     toolProviderStatuses,
     setupProvider,
+    configureProvider,
     enableProvider,
     disableProvider,
     repairProvider,
     uninstallProvider,
   } = useWindie();
   const [pendingProviderId, setPendingProviderId] = useState(null);
+  const [chromeDialog, setChromeDialog] = useState(null);
   const [catalog, setCatalog] = useState("mcps");
 
   const toolStatusesById = useMemo(
@@ -410,11 +568,22 @@ function FullExtensionsPanel() {
 
   const catalogLabel = catalogs.find((entry) => entry.id === catalog)?.label || "MCPs";
 
-  const runAction = async (action, providerId) => {
+  const runAction = async (action, providerId, chromeMode = null, fromDialog = false) => {
+    if ((action === "setup" || action === "configure") && providerId === "chrome-devtools" && !fromDialog) {
+      setChromeDialog({ action, providerId });
+      return;
+    }
     if (action === "uninstall" && !window.confirm("Remove this extension from Windie?")) return;
     setPendingProviderId(providerId);
     try {
-      const actions = { setup: setupProvider, enable: enableProvider, disable: disableProvider, repair: repairProvider, uninstall: uninstallProvider };
+      const actions = {
+        setup: (id) => setupProvider(id, chromeMode),
+        configure: (id) => configureProvider(id, chromeMode),
+        enable: enableProvider,
+        disable: disableProvider,
+        repair: repairProvider,
+        uninstall: uninstallProvider,
+      };
       await actions[action](providerId);
       const labels = {
         setup: "installed",
@@ -422,6 +591,7 @@ function FullExtensionsPanel() {
         disable: "disabled",
         repair: "repaired",
         uninstall: "removed",
+        configure: "reconfigured",
       };
       toast.message(`extension ${labels[action]}`);
     } finally {
@@ -480,6 +650,14 @@ function FullExtensionsPanel() {
           </div>
         )}
       </div>
+      {chromeDialog ? (
+        <ChromeDevToolsConnectionDialog
+          action={chromeDialog.action}
+          currentMode={providerInstallations.find((provider) => provider.providerId === chromeDialog.providerId)?.chromeDevtoolsMode}
+          onConfirm={(mode) => runAction(chromeDialog.action, chromeDialog.providerId, mode, true)}
+          onClose={() => setChromeDialog(null)}
+        />
+      ) : null}
     </div>
   );
 }
@@ -490,6 +668,7 @@ function SidebarExtensions({ onSelectExtension, selectedExtensionId }) {
     providerInstallations,
     providerInstallationsLoading,
     setupProvider,
+    configureProvider,
     enableProvider,
     disableProvider,
     repairProvider,
@@ -501,6 +680,7 @@ function SidebarExtensions({ onSelectExtension, selectedExtensionId }) {
   const [availableExpanded, setAvailableExpanded] = useState(true);
   const [pendingProviderId, setPendingProviderId] = useState(null);
   const [openMenuProviderId, setOpenMenuProviderId] = useState(null);
+  const [chromeDialog, setChromeDialog] = useState(null);
   const menuRef = useRef(null);
   const installed = useMemo(
     () => providerInstallations.filter((provider) => Boolean(provider.installation)),
@@ -535,17 +715,25 @@ function SidebarExtensions({ onSelectExtension, selectedExtensionId }) {
     };
   }, [openMenuProviderId]);
 
-  const install = async (provider) => {
+  const install = async (provider, chromeMode = null, fromDialog = false) => {
+    if (provider.providerId === "chrome-devtools" && !fromDialog) {
+      setChromeDialog({ action: "setup", providerId: provider.providerId });
+      return;
+    }
     setPendingProviderId(provider.providerId);
     try {
-      await setupProvider(provider.providerId);
+      await setupProvider(provider.providerId, chromeMode);
       toast.message("extension installed");
     } finally {
       setPendingProviderId(null);
     }
   };
 
-  const runAction = async (action, providerId) => {
+  const runAction = async (action, providerId, chromeMode = null, fromDialog = false) => {
+    if (action === "configure" && providerId === "chrome-devtools" && !fromDialog) {
+      setChromeDialog({ action, providerId });
+      return;
+    }
     if (action === "uninstall" && !window.confirm("Remove this extension from Windie?")) return;
     setPendingProviderId(providerId);
     try {
@@ -553,10 +741,11 @@ function SidebarExtensions({ onSelectExtension, selectedExtensionId }) {
         enable: enableProvider,
         disable: disableProvider,
         repair: repairProvider,
+        configure: (id) => configureProvider(id, chromeMode),
         uninstall: uninstallProvider,
       };
       await actions[action](providerId);
-      const labels = { enable: "enabled", disable: "disabled", repair: "repaired", uninstall: "removed" };
+      const labels = { enable: "enabled", disable: "disabled", repair: "repaired", configure: "reconfigured", uninstall: "removed" };
       toast.message(`extension ${labels[action]}`);
       setOpenMenuProviderId(null);
     } finally {
@@ -673,6 +862,15 @@ function SidebarExtensions({ onSelectExtension, selectedExtensionId }) {
                             repair
                           </button>
                         )}
+                        {provider.providerId === "chrome-devtools" && (
+                          <button
+                            type="button"
+                            onClick={() => runAction("configure", provider.providerId)}
+                            className="flex w-full items-center px-3 py-2 text-left font-mono text-[10px] uppercase tracking-widest hover:bg-surface-hover"
+                          >
+                            configure
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => runAction("uninstall", provider.providerId)}
@@ -746,6 +944,16 @@ function SidebarExtensions({ onSelectExtension, selectedExtensionId }) {
           </div>
         ))}
       </div>
+      {chromeDialog ? (
+        <ChromeDevToolsConnectionDialog
+          action={chromeDialog.action}
+          currentMode={providerInstallations.find((provider) => provider.providerId === chromeDialog.providerId)?.chromeDevtoolsMode}
+          onConfirm={(mode) => chromeDialog.action === "setup"
+            ? install(providerInstallations.find((provider) => provider.providerId === chromeDialog.providerId), mode, true)
+            : runAction(chromeDialog.action, chromeDialog.providerId, mode, true)}
+          onClose={() => setChromeDialog(null)}
+        />
+      ) : null}
     </div>
   );
 }
