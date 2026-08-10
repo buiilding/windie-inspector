@@ -9,8 +9,8 @@ import {
 const primaryViews = [
   { id: "conversations", label: "Conversations", Icon: MessageSquare },
   { id: "tree", label: "Conversation Graph", Icon: GitBranch },
-  { id: "extensions", label: "Extensions", Icon: Puzzle },
   { id: "llms", label: "LLM Providers", Icon: Brain },
+  { id: "extensions", label: "Extensions", Icon: Puzzle },
 ];
 
 export default function ActivityBar({ activeView, onViewChange }) {
