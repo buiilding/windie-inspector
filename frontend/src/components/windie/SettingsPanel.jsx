@@ -180,7 +180,7 @@ export default function SettingsPanel() {
         </p>
       </Section>
 
-      <Section title={`available tool schemas · ${availableToolsLoading ? "loading" : availableToolSchemas.length}`} defaultOpen={false}>
+      <Section title={`available tool schemas · ${availableToolsLoading ? "loading" : availableToolSchemas.length}`}>
         <div className="space-y-2">
           {groupedTools.map(({ providerId, tools }) => {
             const collapsed = !expandedProviders.has(providerId);
