@@ -6,12 +6,14 @@ import {
   disableProvider as disableProviderApi,
   enableProvider as enableProviderApi,
   listProviderInstallations,
+  listExtensions,
   repairProvider as repairProviderApi,
   setupProvider as setupProviderApi,
   uninstallProvider as uninstallProviderApi,
 } from "@/lib/windieApi";
 import {
   providerInstallationsFromApi,
+  extensionsFromApi,
   toolCatalogFromApi,
   toolProviderStatusesFromApi,
 } from "@/lib/windieMappers";
@@ -24,6 +26,8 @@ export function useToolCatalog({ onError }) {
   const [providerInstallations, setProviderInstallations] = useState([]);
   const [providerInstallationsLoading, setProviderInstallationsLoading] = useState(false);
   const [providerInstallationsLoaded, setProviderInstallationsLoaded] = useState(false);
+  const [extensions, setExtensions] = useState([]);
+  const [extensionsLoading, setExtensionsLoading] = useState(false);
 
   const refreshAvailableTools = useCallback(async () => {
     setAvailableToolsLoading(true);
@@ -50,6 +54,17 @@ export function useToolCatalog({ onError }) {
     }
   }, []);
 
+  const refreshExtensions = useCallback(async () => {
+    setExtensionsLoading(true);
+    try {
+      const nextExtensions = extensionsFromApi(await listExtensions());
+      setExtensions(nextExtensions);
+      return nextExtensions;
+    } finally {
+      setExtensionsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     refreshAvailableTools().catch(onError);
   }, [onError, refreshAvailableTools]);
@@ -57,6 +72,10 @@ export function useToolCatalog({ onError }) {
   useEffect(() => {
     refreshProviderInstallations().catch(onError);
   }, [onError, refreshProviderInstallations]);
+
+  useEffect(() => {
+    refreshExtensions().catch(onError);
+  }, [onError, refreshExtensions]);
 
   const runProviderAction = useCallback(
     async (action, providerId) => {
@@ -66,6 +85,7 @@ export function useToolCatalog({ onError }) {
       try {
         const result = await action(providerId);
         await refreshProviderInstallations();
+        await refreshExtensions();
         await refreshAvailableTools();
         if (result?.installation?.state === "broken") {
           throw new Error(result.installation.error || "provider setup did not pass its readiness check");
@@ -79,7 +99,7 @@ export function useToolCatalog({ onError }) {
         window.clearInterval(progressPoll);
       }
     },
-    [onError, refreshAvailableTools, refreshProviderInstallations]
+    [onError, refreshAvailableTools, refreshExtensions, refreshProviderInstallations]
   );
 
   const setupProvider = useCallback(
@@ -122,8 +142,11 @@ export function useToolCatalog({ onError }) {
     providerInstallations,
     providerInstallationsLoading,
     providerInstallationsLoaded,
+    extensions,
+    extensionsLoading,
     refreshAvailableTools,
     refreshProviderInstallations,
+    refreshExtensions,
     setupProvider,
     configureProvider,
     enableProvider,
