@@ -11,6 +11,7 @@ import {
 import { toast } from "sonner";
 import ExtensionsPanel from "@/components/windie/ExtensionsPanel";
 import LlmProvidersPanel from "@/components/windie/LlmProvidersPanel";
+import RuntimeSystemContext from "@/components/windie/RuntimeSystemContext";
 
 function Section({ title, children, defaultOpen = true, right, testId, resetKey }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -210,6 +211,10 @@ export default function InspectorPanel({ mode, onClose }) {
               <div className="flex items-center justify-between">
                 <button data-testid="inspector-sysprompt-commit" onClick={saveSystemPrompt} className="text-[10px] uppercase px-3 py-1.5 border border-foreground bg-foreground text-background font-mono">save</button>
               </div>
+              <RuntimeSystemContext
+                content={activeConv.runtimeSystemPrompt}
+                testId="inspector-runtime-system-context"
+              />
             </div>
             )
           ) : toolsView === "extensions" ? (

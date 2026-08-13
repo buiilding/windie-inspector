@@ -166,6 +166,12 @@ export function sessionFromApi(session) {
 
 export function conversationFromInspection(report, fallback) {
   const nodes = {};
+  const modelContext = report.model_context || [];
+  const runtimeSystemPrompt = modelContext
+    .filter((message) => message.role === "system")
+    .map((message) => message.content || "")
+    .filter(Boolean)
+    .join("\n\n");
 
   for (const message of report.messages || []) {
     if (!message.id) continue;
@@ -208,7 +214,8 @@ export function conversationFromInspection(report, fallback) {
     tags: fallback?.tags || [],
     messageCount: Object.keys(nodes).length,
     toolSchemas: (report.tool_schemas || []).map(toolSchemaFromApi),
-    modelContext: report.model_context || [],
+    modelContext,
+    runtimeSystemPrompt,
     modelToolSchemas: (report.model_tool_schemas || []).map(toolSchemaFromApi),
     latestCompaction: report.latest_compaction || null,
     paths: (report.paths || []).map((path) => ({
