@@ -40,7 +40,10 @@ export function providerInstallationsFromApi(body) {
     author: provider.manifest?.author || provider.manifest?.provider_id || "Unknown author",
     description: provider.manifest?.description || "",
     readmeMarkdown: provider.manifest?.readme_markdown || "",
-    kind: provider.manifest?.kind || "mcp",
+    // `kind` is the extension kind. The nested manifest kind still describes
+    // the provider transport and may therefore remain `mcp` for a plugin.
+    kind: provider.kind || (provider.plugin ? "plugin" : provider.manifest?.kind || "mcp"),
+    plugin: provider.plugin || null,
     transport: provider.manifest?.transport || "stdio",
     runtime: provider.manifest?.runtime || "native",
     package: provider.manifest?.package || null,
