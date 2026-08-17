@@ -190,6 +190,23 @@ export async function listProviderInstallations() {
   return Array.isArray(body) ? body : body.providers || [];
 }
 
+export async function listPlugins() {
+  return apiRequest("/api/plugins");
+}
+
+export async function installPlugin(pluginId) {
+  return apiRequest(`/api/plugins/${encodeURIComponent(pluginId)}/install`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+export async function uninstallPlugin(pluginId) {
+  return apiRequest(`/api/plugins/${encodeURIComponent(pluginId)}`, {
+    method: "DELETE",
+  });
+}
+
 export async function listLlmProviders() {
   const body = await apiRequest("/api/llm/providers");
   return body.providers || [];

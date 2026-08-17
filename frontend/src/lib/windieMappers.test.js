@@ -1,5 +1,48 @@
-import { upsertConversationMessage } from "./windieMappers";
-import { providerInstallationsFromApi } from "./windieMappers";
+import {
+  pluginMarketplaceFromApi,
+  providerInstallationsFromApi,
+  upsertConversationMessage,
+} from "./windieMappers";
+
+describe("pluginMarketplaceFromApi", () => {
+  test("maps marketplace presentation and installed state", () => {
+    const [plugin] = pluginMarketplaceFromApi({
+      source_url: "http://127.0.0.1:8788/index.json",
+      index: {
+        plugins: [
+          {
+            id: "parallel-search",
+            versions: [
+              {
+                version: "1.0.0",
+                components: ["mcp"],
+                capabilities: ["web_search"],
+                presentation: {
+                  name: "Parallel Search",
+                  description: "Search the web.",
+                  icon_url: "plugins/parallel-search/icon.svg",
+                },
+                publisher: "parallel",
+                status: "verified",
+              },
+            ],
+          },
+        ],
+      },
+      installed: [{
+        id: "parallel-search",
+        version: "1.0.0",
+        components: [{ id: "parallel-search", type: "mcp" }],
+      }],
+    });
+
+    expect(plugin.name).toBe("Parallel Search");
+    expect(plugin.iconUrl).toBe("http://127.0.0.1:8788/plugins/parallel-search/icon.svg");
+    expect(plugin.components).toEqual(["mcp"]);
+    expect(plugin.installed.version).toBe("1.0.0");
+    expect(plugin.installed.components).toEqual([{ id: "parallel-search", type: "mcp" }]);
+  });
+});
 
 describe("providerInstallationsFromApi", () => {
   test("preserves actionable provider readiness", () => {

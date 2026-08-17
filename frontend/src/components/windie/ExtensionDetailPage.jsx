@@ -1,60 +1,88 @@
-import { useEffect, useMemo, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { ExternalLink, Loader2, Power, Settings, Trash2, Wrench } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Download, ExternalLink, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useWindie } from "@/context/WindieContext";
 import {
-  extensionVisual,
   ChromeDevToolsConnectionDialog,
-  providerOnboardingNote,
-  ProviderSecretsForm,
+  ProviderCard,
 } from "@/components/windie/ExtensionsPanel";
 
-export default function ExtensionDetailPage({ providerId }) {
+/**
+ * Shows one installable plugin and the runtime components it contains.
+ *
+ * Plugin installation is the outer lifecycle. MCP enablement, repair,
+ * credentials, and tool status stay inside the component section because they
+ * are runtime concerns, not marketplace identity concerns.
+ */
+export default function ExtensionDetailPage({ pluginId }) {
   const {
     theme,
+    plugins,
+    installPlugin,
+    uninstallPlugin,
+    pendingPluginId,
     providerInstallations,
+    toolProviderStatuses,
     setupProvider,
     configureProvider,
     enableProvider,
     disableProvider,
     repairProvider,
     uninstallProvider,
+    refreshProviderInstallations,
+    refreshAvailableTools,
   } = useWindie();
-  const [tab, setTab] = useState("overview");
-  const [pending, setPending] = useState(false);
+  const [pendingComponentId, setPendingComponentId] = useState(null);
   const [chromeDialog, setChromeDialog] = useState(null);
-  const provider = providerInstallations.find((item) => item.providerId === providerId);
-  const toolSchemas = useMemo(
-    () => provider?.toolCatalog?.tools || [],
-    [provider]
+
+  const plugin = plugins.find((candidate) => candidate.id === pluginId);
+  const componentIds = useMemo(
+    () => new Set((plugin?.installed?.components || []).map((component) => component.id).filter(Boolean)),
+    [plugin]
+  );
+  const providers = useMemo(
+    () => providerInstallations.filter((provider) => componentIds.has(provider.providerId)),
+    [componentIds, providerInstallations]
+  );
+  const toolStatusesById = useMemo(
+    () => new Map((toolProviderStatuses || []).map((provider) => [provider.providerId, provider])),
+    [toolProviderStatuses]
   );
 
-  useEffect(() => {
-    setTab("overview");
-  }, [providerId]);
-
-  if (!provider) {
+  if (!plugin) {
     return (
       <main className="flex min-w-0 flex-1 items-center justify-center bg-background font-mono text-[11px] text-muted-foreground">
-        extension unavailable
+        plugin unavailable
       </main>
     );
   }
 
-  const { providerIcon, Icon, iconPresentation } = extensionVisual(provider.providerId, theme);
-  const installed = Boolean(provider.installation);
-  const state = provider.installation?.state;
-  const repositoryUrl = provider.documentationUrl;
+  const installed = Boolean(plugin.installed);
+  const pendingPlugin = pendingPluginId === plugin.id;
 
-  const runAction = async (action, chromeMode = null, fromDialog = false) => {
+  const refreshRuntime = async () => {
+    await refreshProviderInstallations();
+    await refreshAvailableTools();
+  };
+
+  const install = async () => {
+    await installPlugin(plugin.id);
+    await refreshRuntime();
+  };
+
+  const uninstall = async () => {
+    if (!window.confirm(`Remove ${plugin.name} from Windie?`)) return;
+    await uninstallPlugin(plugin.id);
+    await refreshRuntime();
+  };
+
+  const runComponentAction = async (action, providerId, chromeMode = null, fromDialog = false) => {
     if ((action === "setup" || action === "configure") && providerId === "chrome-devtools" && !fromDialog) {
-      setChromeDialog({ action });
+      setChromeDialog({ action, providerId });
       return;
     }
-    if (action === "uninstall" && !window.confirm("Remove this extension from Windie?")) return;
-    setPending(true);
+    if (action === "uninstall" && !window.confirm("Remove this MCP component from Windie?")) return;
+    setPendingComponentId(providerId);
     try {
       const actions = {
         setup: (id) => setupProvider(id, chromeMode),
@@ -64,11 +92,12 @@ export default function ExtensionDetailPage({ providerId }) {
         repair: repairProvider,
         uninstall: uninstallProvider,
       };
-      await actions[action](provider.providerId);
-      const labels = { setup: "installed", configure: "reconfigured", enable: "enabled", disable: "disabled", repair: "repaired", uninstall: "removed" };
-      toast.message(`extension ${labels[action]}`);
+      await actions[action](providerId);
+      const label = action === "setup" ? "installed" : action === "uninstall" ? "removed" : `${action}d`;
+      toast.message(`component ${label}`);
+      await refreshRuntime();
     } finally {
-      setPending(false);
+      setPendingComponentId(null);
     }
   };
 
@@ -78,130 +107,107 @@ export default function ExtensionDetailPage({ providerId }) {
         <div className="mx-auto w-full max-w-5xl px-8 py-8">
           <header className="flex items-start gap-5 border-b border-border pb-6">
             <div className="grid size-20 shrink-0 place-items-center overflow-hidden border border-border bg-surface">
-              {providerIcon ? (
-                <img
-                  src={providerIcon}
-                  alt=""
-                  aria-hidden="true"
-                  className={`${iconPresentation.size} object-contain`}
-                  style={{ transform: `scale(${iconPresentation.scale})` }}
-                />
+              {plugin.iconUrl ? (
+                <img src={plugin.iconUrl} alt="" aria-hidden="true" className="size-12 object-contain" />
               ) : (
-                <Icon className="size-9" strokeWidth={1.35} />
+                <span className="font-mono text-xl text-muted-foreground">{plugin.name.slice(0, 1)}</span>
               )}
             </div>
             <div className="min-w-0 flex-1">
-              <h1 className="font-sans text-2xl font-medium tracking-tight">{provider.displayName}</h1>
-              <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">{provider.providerId}</p>
+              <h1 className="font-sans text-2xl font-medium tracking-tight">{plugin.name}</h1>
+              <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">{plugin.id}</p>
               <div className="mt-4 flex flex-wrap items-center gap-2">
-                {state === "enabled" && (
-                  <button type="button" disabled={pending} onClick={() => runAction("disable")} className="inline-flex h-8 items-center gap-1.5 border border-border px-3 font-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:bg-surface-hover disabled:opacity-50">
-                    <Power className="size-3" />
-                    disable
+                {!installed ? (
+                  <button
+                    type="button"
+                    disabled={pendingPlugin}
+                    onClick={install}
+                    className="inline-flex h-8 items-center gap-1.5 border border-foreground bg-foreground px-3 font-mono text-[10px] uppercase tracking-widest text-background hover:opacity-85 disabled:opacity-50"
+                  >
+                    {pendingPlugin ? <Loader2 className="size-3 animate-spin" /> : <Download className="size-3" />}
+                    {pendingPlugin ? "installing" : "install plugin"}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={pendingPlugin}
+                    onClick={uninstall}
+                    className="inline-flex h-8 items-center gap-1.5 border border-[hsl(var(--destructive))]/50 px-3 font-mono text-[10px] uppercase tracking-widest text-[hsl(var(--destructive))] hover:bg-[hsl(var(--destructive))]/8 disabled:opacity-50"
+                  >
+                    {pendingPlugin ? <Loader2 className="size-3 animate-spin" /> : <Trash2 className="size-3" />}
+                    remove plugin
                   </button>
                 )}
-                {state === "disabled" && (
-                  <button type="button" disabled={pending} onClick={() => runAction("enable")} className="inline-flex h-8 items-center gap-1.5 border border-foreground bg-foreground px-3 font-mono text-[10px] uppercase tracking-widest text-background hover:opacity-85 disabled:opacity-50">
-                    <Power className="size-3" />
-                    enable
-                  </button>
-                )}
-                {state === "broken" && (
-                  <button type="button" disabled={pending} onClick={() => runAction("repair")} className="inline-flex h-8 items-center gap-1.5 border border-accent bg-accent px-3 font-mono text-[10px] uppercase tracking-widest text-accent-foreground hover:opacity-85 disabled:opacity-50">
-                    <Wrench className="size-3" />
-                    repair
-                  </button>
-                )}
-                {!installed && (
-                  <button type="button" disabled={pending} onClick={() => runAction("setup")} className="inline-flex h-8 items-center gap-1.5 border border-foreground bg-foreground px-3 font-mono text-[10px] uppercase tracking-widest text-background hover:opacity-85 disabled:opacity-50">
-                    {pending ? <Loader2 className="size-3 animate-spin" /> : null}
-                    install
-                  </button>
-                )}
-                {installed && state !== "updating" && (
-                  provider.providerId === "chrome-devtools" && (
-                    <button type="button" disabled={pending} onClick={() => runAction("configure")} className="inline-flex h-8 items-center gap-1.5 border border-border px-3 font-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:bg-surface-hover disabled:opacity-50">
-                      <Settings className="size-3" />
-                      configure
-                    </button>
-                  )
-                )}
-                {installed && state !== "updating" && (
-                  <button type="button" disabled={pending} onClick={() => runAction("uninstall")} className="inline-flex h-8 items-center gap-1.5 border border-border px-3 font-mono text-[10px] uppercase tracking-widest text-[hsl(var(--destructive))] hover:bg-surface-hover disabled:opacity-50">
-                    <Trash2 className="size-3" />
-                    remove
-                  </button>
-                )}
+                <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                  {installed ? `installed · v${plugin.installed.version}` : `available · v${plugin.version || "?"}`}
+                </span>
               </div>
             </div>
           </header>
 
-          <div className="flex items-center gap-5 border-b border-border" role="tablist" aria-label="extension detail views">
-            {[
-              ["overview", "Overview"],
-              ["tools", "Tools"],
-            ].map(([id, label]) => (
-              <button
-                key={id}
-                type="button"
-                role="tab"
-                aria-selected={tab === id}
-                data-testid={`extension-detail-tab-${id}`}
-                onClick={() => setTab(id)}
-                className={`border-b-2 px-1 py-3 font-mono text-[10px] uppercase tracking-widest transition-colors ${tab === id ? "border-[hsl(var(--accent))] text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          <div className="grid gap-8 py-8 lg:grid-cols-[minmax(0,1fr)_220px]">
+            <article className="min-w-0">
+              <h2 className="font-sans text-2xl font-medium tracking-tight">About this plugin</h2>
+              <p className="mt-5 text-[13px] leading-relaxed text-muted-foreground">{plugin.description}</p>
+              {plugin.readmeUrl ? (
+                <a href={plugin.readmeUrl} target="_blank" rel="noreferrer" className="mt-5 inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-widest text-foreground hover:text-accent">
+                  read README <ExternalLink className="size-3" />
+                </a>
+              ) : null}
 
-          {tab === "overview" ? (
-            <div className="grid gap-8 py-8 lg:grid-cols-[minmax(0,1fr)_220px]">
-              <article className="min-w-0">
-                <h2 className="font-sans text-2xl font-medium tracking-tight">{provider.displayName} README</h2>
-                {provider.readmeMarkdown ? (
-                  <div className="provider-readme mt-5 text-[13px] leading-relaxed text-muted-foreground">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{provider.readmeMarkdown}</ReactMarkdown>
-                  </div>
-                ) : (
-                  <p className="mt-5 text-[13px] leading-relaxed text-muted-foreground">{provider.description || "No extension README is available."}</p>
-                )}
-                {providerOnboardingNote(provider.providerId, provider.chromeDevtoolsMode) ? <p data-testid={`provider-onboarding-detail-${provider.providerId}`} className="mt-5 border border-accent/30 bg-accent/8 px-3 py-3 text-[12px] leading-relaxed">{providerOnboardingNote(provider.providerId, provider.chromeDevtoolsMode)}</p> : null}
-                {provider.installation?.nextAction && <p className="mt-8 border border-accent/30 bg-accent/8 px-3 py-3 text-[12px] leading-relaxed">{provider.installation.nextAction}</p>}
-                {provider.installation?.error && <p className="mt-3 border border-[hsl(var(--destructive))]/30 px-3 py-3 text-[12px] leading-relaxed text-[hsl(var(--destructive))]">{provider.installation.error}</p>}
-                {(provider.secrets || []).length > 0 && <div className="mt-8 max-w-md"><ProviderSecretsForm providerId={provider.providerId} secrets={provider.secrets} disabled={pending} /></div>}
-              </article>
-              <aside className="space-y-5 font-mono text-[10px]">
-                <div>
-                  <h3 className="mb-2 text-[10px] uppercase tracking-widest text-muted-foreground">Installation</h3>
-                  <dl className="space-y-2 border-t border-border pt-2 text-muted-foreground">
-                    <div className="flex justify-between gap-3"><dt>Identifier</dt><dd className="text-right text-foreground">{provider.providerId}</dd></div>
-                    <div className="flex justify-between gap-3"><dt>Kind</dt><dd className="text-right text-foreground">{provider.kind || "MCP"}</dd></div>
-                    <div className="flex justify-between gap-3"><dt>State</dt><dd className="text-right text-foreground">{state || "not installed"}</dd></div>
-                  </dl>
+              <section className="mt-10">
+                <div className="flex items-baseline justify-between gap-3 border-b border-border pb-3">
+                  <h2 className="font-sans text-2xl font-medium tracking-tight">Components</h2>
+                  <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">{plugin.components.join(" · ")}</span>
                 </div>
-                {repositoryUrl && <div>
-                  <h3 className="mb-2 text-[10px] uppercase tracking-widest text-muted-foreground">Resources</h3>
-                  <a href={repositoryUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-foreground hover:text-[hsl(var(--accent))]">Documentation <ExternalLink className="size-3" /></a>
-                </div>}
-              </aside>
-            </div>
-          ) : (
-            <div className="py-8">
-              <h2 className="font-sans text-2xl font-medium tracking-tight">Tools</h2>
-              <p className="mt-2 text-[13px] text-muted-foreground">Capabilities exposed by {provider.displayName}.</p>
-              <div className="mt-6 divide-y divide-border border-y border-border">
-                {toolSchemas.length === 0 ? <div className="py-5 font-mono text-[11px] text-muted-foreground">no discovered tools available</div> : toolSchemas.map((schema) => <div key={schema.name} className="py-4"><div className="font-mono text-[12px] text-foreground">{schema.providerToolName || schema.name}</div><div className="mt-1 text-[12px] leading-relaxed text-muted-foreground">{schema.description || "No description available."}</div></div>)}
+                {!installed ? (
+                  <p className="py-5 text-[12px] leading-relaxed text-muted-foreground">Install the plugin to activate and manage its components.</p>
+                ) : providers.length === 0 ? (
+                  <p className="py-5 text-[12px] leading-relaxed text-muted-foreground">This plugin has no executable MCP components.</p>
+                ) : (
+                  <div className="mt-4 grid min-w-0 grid-cols-1 gap-3 xl:grid-cols-2">
+                    {providers.map((provider) => (
+                      <ProviderCard
+                        key={provider.providerId}
+                        provider={provider}
+                        toolStatus={toolStatusesById.get(provider.providerId)}
+                        pending={pendingComponentId === provider.providerId}
+                        theme={theme}
+                        onAction={runComponentAction}
+                      />
+                    ))}
+                  </div>
+                )}
+              </section>
+            </article>
+
+            <aside className="space-y-5 font-mono text-[10px]">
+              <div>
+                <h3 className="mb-2 text-[10px] uppercase tracking-widest text-muted-foreground">Package</h3>
+                <dl className="space-y-2 border-t border-border pt-2 text-muted-foreground">
+                  <div className="flex justify-between gap-3"><dt>Publisher</dt><dd className="text-right text-foreground">{plugin.publisher}</dd></div>
+                  <div className="flex justify-between gap-3"><dt>Version</dt><dd className="text-right text-foreground">{plugin.version || "?"}</dd></div>
+                  <div className="flex justify-between gap-3"><dt>Components</dt><dd className="text-right text-foreground">{plugin.components.length}</dd></div>
+                  <div className="flex justify-between gap-3"><dt>Status</dt><dd className="text-right text-foreground">{plugin.status}</dd></div>
+                </dl>
               </div>
-            </div>
-          )}
+              {plugin.capabilities.length > 0 ? (
+                <div>
+                  <h3 className="mb-2 text-[10px] uppercase tracking-widest text-muted-foreground">Capabilities</h3>
+                  <div className="flex flex-wrap gap-1.5 border-t border-border pt-2">
+                    {plugin.capabilities.map((capability) => <span key={capability} className="border border-accent/30 bg-accent/8 px-1.5 py-0.5 text-foreground">{capability}</span>)}
+                  </div>
+                </div>
+              ) : null}
+            </aside>
+          </div>
         </div>
       </div>
       {chromeDialog ? (
         <ChromeDevToolsConnectionDialog
           action={chromeDialog.action}
-          currentMode={provider.chromeDevtoolsMode}
-          onConfirm={(mode) => runAction(chromeDialog.action, mode, true)}
+          currentMode={providers.find((provider) => provider.providerId === chromeDialog.providerId)?.chromeDevtoolsMode}
+          onConfirm={(mode) => runComponentAction(chromeDialog.action, chromeDialog.providerId, mode, true)}
           onClose={() => setChromeDialog(null)}
         />
       ) : null}

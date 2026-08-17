@@ -78,6 +78,62 @@ export function providerInstallationsFromApi(body) {
   }));
 }
 
+function humanizePluginId(pluginId) {
+  return pluginId
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function resolveMarketplaceAsset(sourceUrl, assetUrl) {
+  if (!assetUrl) return null;
+  try {
+    if (!sourceUrl && !/^https?:\/\//i.test(assetUrl)) return null;
+    return sourceUrl ? new URL(assetUrl, sourceUrl).toString() : assetUrl;
+  } catch {
+    return assetUrl;
+  }
+}
+
+export function pluginMarketplaceFromApi(body) {
+  const installedById = new Map(
+    (body?.installed || []).map((plugin) => [plugin.id, plugin])
+  );
+  const sourceUrl = body?.source_url || null;
+
+  return (body?.index?.plugins || []).map((plugin) => {
+    const release = plugin.versions?.[0] || {};
+    const presentation = release.presentation || {};
+    const installed = installedById.get(plugin.id) || null;
+    return {
+      id: plugin.id,
+      name: presentation.name || humanizePluginId(plugin.id),
+      description: presentation.description || "No plugin description available.",
+      publisher: release.publisher || "Unknown publisher",
+      version: release.version || null,
+      components: release.components || [],
+      capabilities: release.capabilities || [],
+      status: release.status || "unknown",
+      digest: release.digest || null,
+      manifestUrl: release.manifest_url || null,
+      artifactUrl: release.artifact_url || null,
+      readmeUrl: resolveMarketplaceAsset(sourceUrl, presentation.readme_url),
+      iconUrl: resolveMarketplaceAsset(sourceUrl, presentation.icon_url),
+      installed: installed
+        ? {
+            ...installed,
+            components: (installed.components || []).map((component) =>
+              typeof component === "string"
+                ? { id: null, type: component }
+                : { id: component.id || null, type: component.type || "unknown" }
+            ),
+          }
+        : null,
+    };
+  });
+}
+
 export function sessionFromApi(session) {
   if (!session) return null;
   return {

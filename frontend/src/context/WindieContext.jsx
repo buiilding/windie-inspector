@@ -17,6 +17,7 @@ import { useInspectorState } from "@/hooks/useInspectorState";
 import { useModelCatalog } from "@/hooks/useModelCatalog";
 import { useSessionRuntime } from "@/hooks/useSessionRuntime";
 import { useToolCatalog } from "@/hooks/useToolCatalog";
+import { usePluginCatalog } from "@/hooks/usePluginCatalog";
 import { useLlmProviderCatalog } from "@/hooks/useLlmProviderCatalog";
 import {
   contextSignatureParts,
@@ -123,6 +124,17 @@ export function WindieProvider({ children }) {
     repairProvider,
     uninstallProvider,
   } = useToolCatalog({
+    onError: handleResourceError,
+  });
+  const {
+    plugins,
+    loading: pluginsLoading,
+    loaded: pluginsLoaded,
+    pendingPluginId,
+    refreshPlugins,
+    installPlugin,
+    uninstallPlugin,
+  } = usePluginCatalog({
     onError: handleResourceError,
   });
   const {
@@ -455,6 +467,10 @@ export function WindieProvider({ children }) {
     toolProviderStatuses,
     providerInstallations,
     providerInstallationsLoading,
+    plugins,
+    pluginsLoading,
+    pluginsLoaded,
+    pendingPluginId,
     llmProviders,
     llmProviderKeysByName,
     llmProvidersLoading,
@@ -495,6 +511,9 @@ export function WindieProvider({ children }) {
     repairProvider,
     uninstallProvider,
     refreshProviderInstallations,
+    refreshPlugins,
+    installPlugin,
+    uninstallPlugin,
     truncateAfter,
     removeMessage,
     editMessage,
