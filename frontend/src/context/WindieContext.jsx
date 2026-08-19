@@ -510,6 +510,7 @@ export function WindieProvider({ children }) {
     disableProvider,
     repairProvider,
     uninstallProvider,
+    refreshAvailableTools,
     refreshProviderInstallations,
     refreshPlugins,
     installPlugin,

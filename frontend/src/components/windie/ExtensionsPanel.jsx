@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   AlertTriangle,
   Check,
@@ -261,58 +261,43 @@ export function ProviderCard({ provider, toolStatus, pending, theme, onAction })
   );
 }
 
-function MarketplacePluginRow({ plugin, pending, onInstall, onUninstall, onOpen }) {
-  const installed = Boolean(plugin.installed);
-  return (
-    <article data-testid={`marketplace-plugin-${plugin.id}`} className="flex min-w-0 items-center gap-4 border-b border-border px-4 py-3 transition-colors hover:bg-surface-hover">
-      <button type="button" disabled={!onOpen} onClick={() => onOpen?.(plugin.id)} className="grid size-10 shrink-0 place-items-center overflow-hidden bg-transparent p-0 text-left disabled:cursor-default">{plugin.iconUrl ? <img src={plugin.iconUrl} alt="" aria-hidden="true" className="max-h-10 max-w-10 object-contain" /> : <ShieldCheck className="size-6 text-foreground" strokeWidth={1.35} />}</button>
-      <button type="button" disabled={!onOpen} onClick={() => onOpen?.(plugin.id)} className="min-w-0 flex-1 text-left disabled:cursor-default"><h3 className="truncate font-sans text-base font-medium tracking-tight text-foreground">{plugin.name}</h3><p className="mt-0.5 truncate text-[12px] leading-relaxed text-muted-foreground">{plugin.description}</p><p className="truncate text-[12px] font-medium text-muted-foreground">{plugin.publisher}</p></button>
-      {installed ? <button type="button" data-testid={`marketplace-uninstall-${plugin.id}`} disabled={pending} onClick={() => onUninstall(plugin.id)} className="inline-flex h-7 shrink-0 items-center justify-center gap-1 border border-[hsl(var(--destructive))]/50 px-2.5 font-mono text-[9px] uppercase tracking-widest text-[hsl(var(--destructive))] hover:bg-[hsl(var(--destructive))]/8 disabled:opacity-50">{pending ? <Loader2 className="size-3 animate-spin" /> : <Trash2 className="size-3" />} remove</button> : <button type="button" data-testid={`marketplace-install-${plugin.id}`} disabled={pending} onClick={() => onInstall(plugin.id)} className="inline-flex h-7 shrink-0 items-center justify-center gap-1 border border-foreground px-2.5 font-mono text-[9px] uppercase tracking-widest text-foreground hover:bg-foreground hover:text-background disabled:opacity-50">{pending ? <Loader2 className="size-3 animate-spin" /> : <Download className="size-3" />}{pending ? "installing" : "install"}</button>}
-    </article>
-  );
-}
-
-function MarketplacePanel({ plugins, loading, pendingPluginId, query = "", onlyInstalled = false, onInstall, onUninstall, onOpen }) {
-  const normalizedQuery = query.trim().toLowerCase();
-  const filtered = plugins.filter((plugin) => {
-    if (onlyInstalled && !plugin.installed) return false;
-    return !normalizedQuery || [plugin.name, plugin.id, plugin.description, plugin.publisher, ...plugin.capabilities].filter(Boolean).some((value) => value.toLowerCase().includes(normalizedQuery));
-  });
-  if (loading && plugins.length === 0) return <div className="flex min-h-48 items-center justify-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground"><Loader2 className="size-3 animate-spin" /> loading marketplace</div>;
-  if (filtered.length === 0) return <div className="flex min-h-48 flex-col items-center justify-center gap-2 text-center"><PackageOpen className="size-7 text-muted-foreground" strokeWidth={1.25} /><div className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">{normalizedQuery ? "no plugins match" : onlyInstalled ? "no installed plugins" : "marketplace is empty"}</div></div>;
-  return <div className="min-w-0 border-t border-border">{filtered.map((plugin) => <MarketplacePluginRow key={plugin.id} plugin={plugin} pending={pendingPluginId === plugin.id} onInstall={onInstall} onUninstall={onUninstall} onOpen={onOpen} />)}</div>;
-}
-
 function PluginRow({ plugin, selected, onSelect }) {
-  return <button type="button" data-testid={`plugin-row-${plugin.id}`} onClick={() => onSelect?.(plugin.id)} className={`flex w-full items-start gap-3 border-b border-border px-3 py-3 text-left transition-colors hover:bg-surface-hover ${selected ? "bg-surface" : ""}`}><span className="grid size-10 shrink-0 place-items-center overflow-hidden border border-border bg-surface text-foreground">{plugin.iconUrl ? <img src={plugin.iconUrl} alt="" aria-hidden="true" className="size-7 object-contain" /> : <ShieldCheck className="size-4" strokeWidth={1.35} />}</span><span className="min-w-0 flex-1"><span className="block truncate font-sans text-[13px] font-medium text-foreground">{plugin.name}</span><span className="block truncate text-[11px] text-muted-foreground">{plugin.description || "No description available."}</span><span className="block truncate font-mono text-[10px] uppercase tracking-wider text-muted-foreground">{plugin.components.join(" · ")} · v{plugin.installed.version}</span></span></button>;
+  const installed = Boolean(plugin.installed);
+  const metadata = installed
+    ? `${plugin.components.join(" · ")} · v${plugin.installed.version}`
+    : plugin.publisher;
+  return <button type="button" data-testid={`plugin-row-${plugin.id}`} onClick={() => onSelect?.(plugin.id)} className={`flex w-full items-start gap-3 border-b border-border px-3 py-3 text-left transition-colors hover:bg-surface-hover ${selected ? "bg-surface" : ""}`}><span className="grid size-10 shrink-0 place-items-center overflow-hidden border border-border bg-surface text-foreground">{plugin.iconUrl ? <img src={plugin.iconUrl} alt="" aria-hidden="true" className="size-7 object-contain" /> : <ShieldCheck className="size-4" strokeWidth={1.35} />}</span><span className="min-w-0 flex-1"><span className="block truncate font-sans text-[13px] font-medium text-foreground">{plugin.name}</span><span className="block truncate text-[11px] text-muted-foreground">{plugin.description || "No description available."}</span><span className="block truncate font-mono text-[10px] uppercase tracking-wider text-muted-foreground">{metadata}</span></span></button>;
 }
 
-function pluginActionHandlers({ installPlugin, uninstallPlugin, refreshProviderInstallations, refreshAvailableTools }) {
-  const refreshRuntime = async () => { await refreshProviderInstallations(); await refreshAvailableTools(); };
-  return {
-    install: async (pluginId) => { await installPlugin(pluginId); await refreshRuntime(); },
-    uninstall: async (pluginId) => { if (!window.confirm("Remove this plugin from Windie?")) return; await uninstallPlugin(pluginId); await refreshRuntime(); },
-  };
+function ExtensionSection({ id, title, expanded, onToggle, children }) {
+  return <section data-testid={`extensions-section-${id}`} className={`shrink-0 border-b border-border ${id === "recommended" && !expanded ? "mt-auto" : ""}`}><button type="button" aria-expanded={expanded} onClick={onToggle} className="flex w-full items-center justify-between px-3 py-3 text-left hover:bg-surface-hover"><span className="flex items-center gap-2"><span className="text-muted-foreground">{expanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}</span><span className="font-sans text-sm font-medium tracking-tight">{title}</span></span></button>{expanded ? children : null}</section>;
+}
+
+function ExtensionList({ plugins, query, emptyLabel, onSelectExtension, selectedExtensionId }) {
+  if (plugins.length === 0) return <div className="px-3 py-4 font-mono text-[10px] text-muted-foreground">{query ? `no ${emptyLabel.toLowerCase()} extensions match` : `no ${emptyLabel.toLowerCase()} extensions`}</div>;
+  return <div className="divide-y divide-border">{plugins.map((plugin) => <PluginRow key={plugin.id} plugin={plugin} selected={selectedExtensionId === plugin.id} onSelect={onSelectExtension} />)}</div>;
+}
+
+function ExtensionsCatalog({ onSelectExtension, selectedExtensionId }) {
+  const { plugins, pluginsLoading, refreshPlugins, refreshProviderInstallations, refreshAvailableTools } = useWindie();
+  const [query, setQuery] = useState("");
+  const [installedExpanded, setInstalledExpanded] = useState(true);
+  const [recommendedExpanded, setRecommendedExpanded] = useState(true);
+  const normalizedQuery = query.trim().toLowerCase();
+  const matches = (plugin) => !normalizedQuery || [plugin.name, plugin.id, plugin.description, plugin.publisher, ...plugin.capabilities].filter(Boolean).some((value) => value.toLowerCase().includes(normalizedQuery));
+  const installedPlugins = plugins.filter((plugin) => plugin.installed);
+  const recommendedPlugins = plugins.filter((plugin) => !plugin.installed);
+  const installed = installedPlugins.filter(matches);
+  const recommended = recommendedPlugins.filter(matches);
+  return <div className="relative flex h-full min-h-0 flex-col bg-background"><div className="flex h-11 shrink-0 items-center justify-between border-b border-border px-3"><span className="font-sans text-base font-medium tracking-tight">Extensions</span><button type="button" data-testid="extensions-refresh" aria-label="refresh extensions" title="refresh extensions" onClick={() => { refreshPlugins(); refreshProviderInstallations(); refreshAvailableTools(); }} className="grid size-7 place-items-center text-muted-foreground hover:bg-surface-hover hover:text-foreground"><RefreshCw className="size-3.5" strokeWidth={1.75} /></button></div><div className="shrink-0 px-3 py-3"><div className="flex h-9 items-center rounded-lg border border-border bg-surface/20 px-2.5 transition-colors focus-within:border-muted-foreground"><input data-testid="extensions-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search extensions" className="min-w-0 flex-1 bg-transparent font-mono text-[11px] outline-none placeholder:text-muted-foreground/60" /></div></div><div className="flex min-h-0 flex-1 flex-col overflow-y-auto windie-scroll">{pluginsLoading && plugins.length === 0 ? <div className="flex min-h-48 items-center justify-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground"><Loader2 className="size-3 animate-spin" /> loading extensions</div> : <><ExtensionSection id="installed" title="Installed" expanded={installedExpanded} onToggle={() => setInstalledExpanded((current) => !current)}><ExtensionList plugins={installed} query={normalizedQuery} emptyLabel="Installed" onSelectExtension={onSelectExtension} selectedExtensionId={selectedExtensionId} /></ExtensionSection><ExtensionSection id="recommended" title="Recommended" expanded={recommendedExpanded} onToggle={() => setRecommendedExpanded((current) => !current)}><ExtensionList plugins={recommended} query={normalizedQuery} emptyLabel="Recommended" onSelectExtension={onSelectExtension} selectedExtensionId={selectedExtensionId} /></ExtensionSection></>}</div></div>;
 }
 
 function FullExtensionsPanel() {
-  const { plugins, pluginsLoading, pendingPluginId, installPlugin, uninstallPlugin, refreshProviderInstallations, refreshAvailableTools } = useWindie();
-  const [catalog, setCatalog] = useState("marketplace");
-  const actions = pluginActionHandlers({ installPlugin, uninstallPlugin, refreshProviderInstallations, refreshAvailableTools });
-  const catalogs = [{ id: "marketplace", label: "Marketplace", count: plugins.length }, { id: "installed", label: "Installed Plugins", count: plugins.filter((plugin) => plugin.installed).length }];
-  return <div className="flex flex-col"><div className="p-5"><div className="mb-5 flex items-center gap-1 border-b border-border pb-3" role="tablist" aria-label="plugin catalogs">{catalogs.map((entry) => <button key={entry.id} type="button" role="tab" aria-selected={catalog === entry.id} data-testid={`extensions-catalog-${entry.id}`} onClick={() => setCatalog(entry.id)} className={`h-8 px-3 font-mono text-[10px] uppercase tracking-widest transition-colors ${catalog === entry.id ? "bg-foreground text-background" : "text-muted-foreground hover:bg-surface-hover hover:text-foreground"}`}>{entry.label}<span className="ml-1.5 opacity-60">{entry.count}</span></button>)}</div><MarketplacePanel plugins={plugins} loading={pluginsLoading} pendingPluginId={pendingPluginId} onlyInstalled={catalog === "installed"} onInstall={actions.install} onUninstall={actions.uninstall} /></div></div>;
+  return <ExtensionsCatalog />;
 }
 
 function SidebarExtensions({ onSelectExtension, selectedExtensionId }) {
-  const { plugins, pluginsLoading, pendingPluginId, installPlugin, uninstallPlugin, refreshPlugins, refreshProviderInstallations, refreshAvailableTools } = useWindie();
-  const [query, setQuery] = useState("");
-  const [catalogView, setCatalogView] = useState("marketplace");
-  const [installedExpanded, setInstalledExpanded] = useState(true);
-  const actions = pluginActionHandlers({ installPlugin, uninstallPlugin, refreshProviderInstallations, refreshAvailableTools });
-  const normalizedQuery = query.trim().toLowerCase();
-  const matches = (plugin) => !normalizedQuery || [plugin.name, plugin.id, plugin.description, plugin.publisher, ...plugin.capabilities].filter(Boolean).some((value) => value.toLowerCase().includes(normalizedQuery));
-  const installed = plugins.filter((plugin) => plugin.installed && matches(plugin));
-  return <div className="relative flex h-full min-h-0 flex-col bg-background"><div className="flex h-11 shrink-0 items-center justify-between border-b border-border px-3"><span className="font-sans text-base font-medium tracking-tight">Extensions</span><button type="button" data-testid="extensions-refresh" aria-label="refresh extensions" title="refresh extensions" onClick={() => { refreshPlugins(); refreshProviderInstallations(); refreshAvailableTools(); }} className="grid size-7 place-items-center text-muted-foreground hover:bg-surface-hover hover:text-foreground"><RefreshCw className="size-3.5" strokeWidth={1.75} /></button></div><div className="flex h-9 shrink-0 items-center gap-1 border-b border-border px-3">{[["marketplace", "Marketplace", plugins.length], ["installed", "Installed Plugins", plugins.filter((plugin) => plugin.installed).length]].map(([id, label, count]) => <button key={id} type="button" data-testid={`extensions-view-${id}`} aria-pressed={catalogView === id} onClick={() => setCatalogView(id)} className={`h-7 px-2 font-mono text-[9px] uppercase tracking-widest ${catalogView === id ? "bg-foreground text-background" : "text-muted-foreground hover:bg-surface-hover hover:text-foreground"}`}>{label} <span className="opacity-60">{count}</span></button>)}</div><div className="flex h-9 shrink-0 items-center gap-1.5 border-b border-border px-3"><input data-testid="extensions-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search plugins" className="min-w-0 flex-1 bg-transparent font-mono text-[11px] outline-none placeholder:text-muted-foreground/60" /></div><div className="min-h-0 flex-1 overflow-y-auto windie-scroll">{catalogView === "marketplace" ? <div className="p-3"><MarketplacePanel plugins={plugins} loading={pluginsLoading} pendingPluginId={pendingPluginId} query={query} onInstall={actions.install} onUninstall={actions.uninstall} onOpen={onSelectExtension} /></div> : <><button type="button" aria-expanded={installedExpanded} onClick={() => setInstalledExpanded((current) => !current)} className="flex w-full items-center justify-between border-b border-border px-3 py-3 text-left hover:bg-surface-hover"><span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground"><span>Installed plugins</span><span className="grid size-5 place-items-center rounded-full bg-surface text-[9px] text-foreground">{installed.length}</span></span>{installedExpanded ? <ChevronDown className="size-3.5 text-muted-foreground" /> : <ChevronRight className="size-3.5 text-muted-foreground" />}</button>{installedExpanded && pluginsLoading && plugins.length === 0 ? <div className="flex items-center justify-center gap-2 px-3 py-8 font-mono text-[10px] uppercase tracking-widest text-muted-foreground"><Loader2 className="size-3 animate-spin" /> loading plugins</div> : installedExpanded && installed.length === 0 ? <div className="px-3 py-4 font-mono text-[10px] text-muted-foreground">{query ? "no installed plugins match" : "no installed plugins"}</div> : installedExpanded ? <div className="divide-y divide-border border-y border-border">{installed.map((plugin) => <PluginRow key={plugin.id} plugin={plugin} selected={selectedExtensionId === plugin.id} onSelect={onSelectExtension} />)}</div> : null}</>}</div></div>;
+  return <ExtensionsCatalog onSelectExtension={onSelectExtension} selectedExtensionId={selectedExtensionId} />;
 }
 
 export default function ExtensionsPanel({ variant = "full", onSelectExtension, selectedExtensionId }) {
