@@ -1,53 +1,18 @@
-import { useMemo, useState } from "react";
 import { Download, ExternalLink, Loader2, Trash2 } from "lucide-react";
-import { toast } from "sonner";
 import { useWindie } from "@/context/WindieContext";
-import {
-  ChromeDevToolsConnectionDialog,
-  ProviderCard,
-} from "@/components/windie/ExtensionsPanel";
 
 /**
- * Shows one installable plugin and the runtime components it contains.
- *
- * Plugin installation is the outer lifecycle. MCP enablement, repair,
- * credentials, and tool status stay inside the component section because they
- * are runtime concerns, not marketplace identity concerns.
+ * Shows one installable plugin and its marketplace presentation metadata.
  */
 export default function ExtensionDetailPage({ pluginId }) {
   const {
-    theme,
     plugins,
     installPlugin,
     uninstallPlugin,
     pendingPluginId,
-    providerInstallations,
-    toolProviderStatuses,
-    setupProvider,
-    configureProvider,
-    enableProvider,
-    disableProvider,
-    repairProvider,
-    uninstallProvider,
-    refreshProviderInstallations,
-    refreshAvailableTools,
   } = useWindie();
-  const [pendingComponentId, setPendingComponentId] = useState(null);
-  const [chromeDialog, setChromeDialog] = useState(null);
 
   const plugin = plugins.find((candidate) => candidate.id === pluginId);
-  const componentIds = useMemo(
-    () => new Set((plugin?.installed?.components || []).map((component) => component.id).filter(Boolean)),
-    [plugin]
-  );
-  const providers = useMemo(
-    () => providerInstallations.filter((provider) => componentIds.has(provider.providerId)),
-    [componentIds, providerInstallations]
-  );
-  const toolStatusesById = useMemo(
-    () => new Map((toolProviderStatuses || []).map((provider) => [provider.providerId, provider])),
-    [toolProviderStatuses]
-  );
 
   if (!plugin) {
     return (
@@ -60,45 +25,13 @@ export default function ExtensionDetailPage({ pluginId }) {
   const installed = Boolean(plugin.installed);
   const pendingPlugin = pendingPluginId === plugin.id;
 
-  const refreshRuntime = async () => {
-    await refreshProviderInstallations();
-    await refreshAvailableTools();
-  };
-
   const install = async () => {
     await installPlugin(plugin.id);
-    await refreshRuntime();
   };
 
   const uninstall = async () => {
     if (!window.confirm(`Remove ${plugin.name} from Windie?`)) return;
     await uninstallPlugin(plugin.id);
-    await refreshRuntime();
-  };
-
-  const runComponentAction = async (action, providerId, chromeMode = null, fromDialog = false) => {
-    if ((action === "setup" || action === "configure") && providerId === "chrome-devtools" && !fromDialog) {
-      setChromeDialog({ action, providerId });
-      return;
-    }
-    if (action === "uninstall" && !window.confirm("Remove this MCP component from Windie?")) return;
-    setPendingComponentId(providerId);
-    try {
-      const actions = {
-        setup: (id) => setupProvider(id, chromeMode),
-        configure: (id) => configureProvider(id, chromeMode),
-        enable: enableProvider,
-        disable: disableProvider,
-        repair: repairProvider,
-        uninstall: uninstallProvider,
-      };
-      await actions[action](providerId);
-      const label = action === "setup" ? "installed" : action === "uninstall" ? "removed" : `${action}d`;
-      toast.message(`component ${label}`);
-      await refreshRuntime();
-    } finally {
-      setPendingComponentId(null);
-    }
   };
 
   return (
@@ -138,9 +71,6 @@ export default function ExtensionDetailPage({ pluginId }) {
                     remove plugin
                   </button>
                 )}
-                <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                  {installed ? `installed · v${plugin.installed.version}` : `available · v${plugin.version || "?"}`}
-                </span>
               </div>
             </div>
           </header>
@@ -155,30 +85,6 @@ export default function ExtensionDetailPage({ pluginId }) {
                 </a>
               ) : null}
 
-              <section className="mt-10">
-                <div className="flex items-baseline justify-between gap-3 border-b border-border pb-3">
-                  <h2 className="font-sans text-2xl font-medium tracking-tight">Components</h2>
-                  <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">{plugin.components.join(" · ")}</span>
-                </div>
-                {!installed ? (
-                  <p className="py-5 text-[12px] leading-relaxed text-muted-foreground">Install the plugin to activate and manage its components.</p>
-                ) : providers.length === 0 ? (
-                  <p className="py-5 text-[12px] leading-relaxed text-muted-foreground">This plugin has no executable MCP components.</p>
-                ) : (
-                  <div className="mt-4 grid min-w-0 grid-cols-1 gap-3 xl:grid-cols-2">
-                    {providers.map((provider) => (
-                      <ProviderCard
-                        key={provider.providerId}
-                        provider={provider}
-                        toolStatus={toolStatusesById.get(provider.providerId)}
-                        pending={pendingComponentId === provider.providerId}
-                        theme={theme}
-                        onAction={runComponentAction}
-                      />
-                    ))}
-                  </div>
-                )}
-              </section>
             </article>
 
             <aside className="space-y-5 font-mono text-[10px]">
@@ -187,7 +93,6 @@ export default function ExtensionDetailPage({ pluginId }) {
                 <dl className="space-y-2 border-t border-border pt-2 text-muted-foreground">
                   <div className="flex justify-between gap-3"><dt>Publisher</dt><dd className="text-right text-foreground">{plugin.publisher}</dd></div>
                   <div className="flex justify-between gap-3"><dt>Version</dt><dd className="text-right text-foreground">{plugin.version || "?"}</dd></div>
-                  <div className="flex justify-between gap-3"><dt>Components</dt><dd className="text-right text-foreground">{plugin.components.length}</dd></div>
                   <div className="flex justify-between gap-3"><dt>Status</dt><dd className="text-right text-foreground">{plugin.status}</dd></div>
                 </dl>
               </div>
@@ -203,14 +108,6 @@ export default function ExtensionDetailPage({ pluginId }) {
           </div>
         </div>
       </div>
-      {chromeDialog ? (
-        <ChromeDevToolsConnectionDialog
-          action={chromeDialog.action}
-          currentMode={providers.find((provider) => provider.providerId === chromeDialog.providerId)?.chromeDevtoolsMode}
-          onConfirm={(mode) => runComponentAction(chromeDialog.action, chromeDialog.providerId, mode, true)}
-          onClose={() => setChromeDialog(null)}
-        />
-      ) : null}
     </main>
   );
 }
