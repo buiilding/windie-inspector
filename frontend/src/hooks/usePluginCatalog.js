@@ -8,7 +8,7 @@ import {
 import { pluginMarketplaceFromApi } from "@/lib/windieMappers";
 
 /** Owns marketplace discovery and the outer plugin install lifecycle. */
-export function usePluginCatalog({ onError }) {
+export function usePluginCatalog({ onError, onPluginChanged }) {
   const [plugins, setPlugins] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -37,6 +37,7 @@ export function usePluginCatalog({ onError }) {
       try {
         const result = await action(pluginId);
         await refresh();
+        await onPluginChanged?.();
         toast.message(successMessage);
         return result;
       } catch (error) {
@@ -47,7 +48,7 @@ export function usePluginCatalog({ onError }) {
         setPendingPluginId(null);
       }
     },
-    [onError, pendingPluginId, refresh]
+    [onError, onPluginChanged, pendingPluginId, refresh]
   );
 
   const installPlugin = useCallback(

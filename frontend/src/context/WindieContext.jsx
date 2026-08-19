@@ -126,6 +126,10 @@ export function WindieProvider({ children }) {
   } = useToolCatalog({
     onError: handleResourceError,
   });
+  const refreshPluginRuntime = useCallback(
+    () => Promise.all([refreshProviderInstallations(), refreshAvailableTools()]),
+    [refreshAvailableTools, refreshProviderInstallations]
+  );
   const {
     plugins,
     loading: pluginsLoading,
@@ -136,6 +140,7 @@ export function WindieProvider({ children }) {
     uninstallPlugin,
   } = usePluginCatalog({
     onError: handleResourceError,
+    onPluginChanged: refreshPluginRuntime,
   });
   const {
     providers: llmProviders,
