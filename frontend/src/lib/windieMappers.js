@@ -202,6 +202,7 @@ export function conversationFromInspection(report, fallback) {
     messageCount: Object.keys(nodes).length,
     toolSchemas: (report.tool_schemas || []).map(toolSchemaFromApi),
     modelContext: report.model_context || [],
+    modelToolSchemas: (report.model_tool_schemas || []).map(toolSchemaFromApi),
     latestCompaction: report.latest_compaction || null,
     paths: (report.paths || []).map((path) => ({
       messageIds: Array.isArray(path.message_ids) ? path.message_ids : [],
