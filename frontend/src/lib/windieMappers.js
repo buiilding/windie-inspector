@@ -120,6 +120,7 @@ export function pluginMarketplaceFromApi(body) {
       artifactUrl: release.artifact_url || null,
       readmeUrl: resolveMarketplaceAsset(sourceUrl, presentation.readme_url),
       iconUrl: resolveMarketplaceAsset(sourceUrl, presentation.icon_url),
+      repositoryUrl: presentation.repository_url || null,
       installed: installed
         ? {
             ...installed,

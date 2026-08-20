@@ -210,8 +210,9 @@ export default function ExtensionDetailPage({ pluginId }) {
               <DetailSection title="Resources">
                 <div className="border-t border-border pt-2">
                   {plugin.readmeUrl ? <ResourceLink href={plugin.readmeUrl} label="README" /> : null}
+                  {plugin.repositoryUrl ? <ResourceLink href={plugin.repositoryUrl} label="Repository" /> : null}
                   {plugin.artifactUrl ? <ResourceLink href={plugin.artifactUrl} label="Package" /> : null}
-                  {!plugin.readmeUrl && !plugin.artifactUrl ? <p className="text-muted-foreground">No resources listed.</p> : null}
+                  {!plugin.readmeUrl && !plugin.repositoryUrl && !plugin.artifactUrl ? <p className="text-muted-foreground">No resources listed.</p> : null}
                 </div>
               </DetailSection>
             </aside>

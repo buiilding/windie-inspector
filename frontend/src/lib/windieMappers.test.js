@@ -21,6 +21,7 @@ describe("pluginMarketplaceFromApi", () => {
                   name: "Parallel Search",
                   description: "Search the web.",
                   icon_url: "plugins/parallel-search/icon.svg",
+                  repository_url: "https://github.com/example/parallel-search",
                 },
                 publisher: "parallel",
                 status: "verified",
@@ -38,6 +39,7 @@ describe("pluginMarketplaceFromApi", () => {
 
     expect(plugin.name).toBe("Parallel Search");
     expect(plugin.iconUrl).toBe("http://127.0.0.1:8788/plugins/parallel-search/icon.svg");
+    expect(plugin.repositoryUrl).toBe("https://github.com/example/parallel-search");
     expect(plugin.components).toEqual(["mcp"]);
     expect(plugin.installed.version).toBe("1.0.0");
     expect(plugin.installed.components).toEqual([{ id: "parallel-search", type: "mcp" }]);
