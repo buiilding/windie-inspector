@@ -9,19 +9,29 @@
 use std::net::SocketAddr;
 
 use anyhow::{Context, Result};
-use axum::extract::Path;
+use axum::extract::{Path, State};
 use axum::http::{StatusCode, header};
 use axum::response::{Html, IntoResponse, Response};
-use axum::routing::get;
+use axum::routing::{get, post};
 use axum::{Router, serve};
 use rust_embed::Embed;
 use tokio::net::TcpListener;
+use tokio::sync::watch;
 
 const DEFAULT_INSPECTOR_ADDRESS: &str = "127.0.0.1:3000";
 
 #[derive(Embed)]
 #[folder = "../frontend/build"]
 struct InspectorAssets;
+
+/// Shared host state containing the explicit local shutdown request channel.
+///
+/// The Inspector is bound to loopback, so this route is a local lifecycle
+/// control, not a browser-facing runtime API.
+#[derive(Clone)]
+struct InspectorState {
+    shutdown: watch::Sender<bool>,
+}
 
 /// Starts the standalone Inspector HTTP server.
 #[tokio::main]
@@ -41,21 +51,27 @@ async fn main() -> Result<()> {
     let listener = TcpListener::bind(address)
         .await
         .with_context(|| format!("failed to bind Inspector at {address}"))?;
+    let (shutdown_sender, shutdown_receiver) = watch::channel(false);
 
     println!("windie inspector listening on http://{address}");
-    serve(listener, router())
-        .with_graceful_shutdown(shutdown_signal())
+    // Keep one sender in `main` for the lifetime of the server. The router
+    // receives a clone for `/shutdown`; dropping request state must never be
+    // interpreted as a shutdown request.
+    serve(listener, router(shutdown_sender.clone()))
+        .with_graceful_shutdown(shutdown_signal(shutdown_receiver))
         .await
         .context("Inspector server failed")
 }
 
-fn router() -> Router {
+fn router(shutdown: watch::Sender<bool>) -> Router {
     Router::new()
         .route("/", get(index))
         .route("/static/{*path}", get(static_asset))
         .route("/asset-manifest.json", get(asset_manifest))
         .route("/favicon.ico", get(favicon))
         .route("/manifest.json", get(manifest))
+        .route("/shutdown", post(request_shutdown))
+        .with_state(InspectorState { shutdown })
 }
 
 async fn index() -> Response {
@@ -76,6 +92,13 @@ async fn favicon() -> Response {
 
 async fn manifest() -> Response {
     serve_asset("manifest.json")
+}
+
+/// Requests graceful Inspector shutdown after returning an acknowledgement to
+/// the local lifecycle caller.
+async fn request_shutdown(State(state): State<InspectorState>) -> StatusCode {
+    let _ = state.shutdown.send(true);
+    StatusCode::ACCEPTED
 }
 
 fn serve_index() -> Response {
@@ -123,7 +146,7 @@ fn serve_asset(path: &str) -> Response {
     }
 }
 
-async fn shutdown_signal() {
+async fn shutdown_signal(mut shutdown: watch::Receiver<bool>) {
     let ctrl_c = async {
         if let Err(error) = tokio::signal::ctrl_c().await {
             eprintln!("failed to install Inspector Ctrl-C handler: {error}");
@@ -146,8 +169,15 @@ async fn shutdown_signal() {
     #[cfg(not(unix))]
     let terminate = std::future::pending::<()>();
 
+    let requested_shutdown = async move {
+        if !*shutdown.borrow() {
+            let _ = shutdown.changed().await;
+        }
+    };
+
     tokio::select! {
         _ = ctrl_c => {},
         _ = terminate => {},
+        _ = requested_shutdown => {},
     }
 }
