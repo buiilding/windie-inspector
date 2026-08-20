@@ -165,6 +165,13 @@ export async function stopSession(sessionId) {
   });
 }
 
+export async function setSessionKeepAwake(sessionId, keepAwake) {
+  return apiRequest(`/api/sessions/${encodeURIComponent(sessionId)}/keep-awake`, {
+    method: "PATCH",
+    body: JSON.stringify({ keep_awake: Boolean(keepAwake) }),
+  });
+}
+
 export async function approveSessionTool(sessionId, toolCallId) {
   return apiRequest(
     `/api/sessions/${encodeURIComponent(sessionId)}/approvals/${encodeURIComponent(toolCallId)}/approve`,

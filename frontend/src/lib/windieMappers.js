@@ -146,6 +146,7 @@ export function sessionFromApi(session) {
     model: session.model,
     reasoning: session.reasoning || null,
     error: session.error || null,
+    keepAwake: Boolean(session.keep_awake),
     queued: Boolean(session.queued),
     queueDepth: session.queue_depth || 0,
     queueId: session.queue_id || null,

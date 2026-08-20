@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, MoreHorizontal } from "lucide-react";
 import { useWindie } from "@/context/WindieContext";
 import FloatingDeleteMenu, { floatingMenuPosition } from "@/components/windie/FloatingDeleteMenu";
+import { Switch } from "@/components/ui/switch";
 
 function shortId(id) {
   return id ? id.slice(0, 8) : "";
@@ -30,6 +31,7 @@ export default function SessionsChip({ dropUp = false }) {
     viewHeadId,
     selectSession,
     deleteSession,
+    setSessionKeepAwake,
   } = useWindie();
   const [open, setOpen] = useState(false);
   const [menuSession, setMenuSession] = useState(null);
@@ -136,6 +138,22 @@ export default function SessionsChip({ dropUp = false }) {
                     </span>
                     {!viewHeadId && session.id === selectedSessionId && <Check className="size-3 shrink-0" />}
                   </button>
+                  <label
+                    className="shrink-0 flex items-center gap-1.5 text-muted-foreground text-[10px]"
+                    title="Wake this session after 30 minutes without user activity"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    awake
+                    <Switch
+                      checked={session.keepAwake}
+                      onCheckedChange={(keepAwake) => {
+                        setSessionKeepAwake(session.id, keepAwake).catch(() => {});
+                      }}
+                      aria-label={`keep session ${shortId(session.id)} awake`}
+                      data-testid={`topbar-session-keep-awake-${shortId(session.id)}`}
+                      className="scale-75 origin-right"
+                    />
+                  </label>
                   <button
                     type="button"
                     data-testid={`topbar-session-menu-${shortId(session.id)}`}

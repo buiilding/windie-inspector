@@ -177,6 +177,7 @@ export function WindieProvider({ children }) {
     continueConversation,
     stopStreaming,
     deleteSession,
+    setSessionKeepAwake,
     approveToolCall,
     denyToolCall,
   } = sessionRuntime;
@@ -499,6 +500,7 @@ export function WindieProvider({ children }) {
     selectConversation,
     selectSession,
     deleteSession,
+    setSessionKeepAwake,
     renameConversation,
     deleteConversation,
     setSystemPrompt,
