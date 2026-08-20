@@ -148,6 +148,7 @@ export async function continueSession(sessionId) {
   });
 }
 
+/** Loads one authoritative durable session for direct Inspector navigation. */
 export async function getSession(sessionId) {
   return apiRequest(`/api/sessions/${encodeURIComponent(sessionId)}`);
 }
