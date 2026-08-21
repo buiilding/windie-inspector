@@ -9,6 +9,7 @@ import {
   listSessions,
   queryConversation as queryConversationApi,
   resolveSessionAtHead as resolveSessionAtHeadApi,
+  setSessionKeepAwake as setSessionKeepAwakeApi,
   stopSession as stopSessionApi,
 } from "@/lib/windieApi";
 import { currentSessionHead } from "@/lib/sessionTarget";
@@ -437,6 +438,19 @@ export function useSessionRuntime({
 
   const getSelectedSession = useCallback(() => selectedSessionRef.current, []);
 
+  const setSessionKeepAwake = useCallback(async (sessionId, keepAwake) => {
+    if (!sessionId) return null;
+    try {
+      const session = sessionFromApi(
+        await setSessionKeepAwakeApi(sessionId, keepAwake)
+      );
+      return rememberSession(session);
+    } catch (error) {
+      setApiError(error.message);
+      throw error;
+    }
+  }, [rememberSession, setApiError]);
+
   return {
     sessionsById,
     selectedSession,
@@ -459,5 +473,6 @@ export function useSessionRuntime({
     deleteSession,
     approveToolCall,
     denyToolCall,
+    setSessionKeepAwake,
   };
 }

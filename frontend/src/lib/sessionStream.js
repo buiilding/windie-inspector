@@ -1,3 +1,5 @@
+import { apiAuthorizationHeaders } from "@/lib/windieApi";
+
 const API_BASE =
   (typeof window !== "undefined" && window.__WINDIE_API_URL__) ||
   process.env.REACT_APP_WINDIE_API_URL ||
@@ -39,6 +41,7 @@ function parseSseBlock(block) {
 async function streamSse(path, fallbackError, onEvent, options = {}) {
   const response = await fetch(`${API_BASE}${path}`, {
     signal: options.signal,
+    headers: apiAuthorizationHeaders(),
   });
 
   if (!response.ok) {

@@ -5,9 +5,11 @@ import {
   useState,
   useCallback,
 } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
   apiRequest,
+  getSession as getSessionApi,
   setConversationModel as setConversationModelApi,
   setConversationReasoning as setConversationReasoningApi,
 } from "@/lib/windieApi";
@@ -17,11 +19,15 @@ import { useInspectorState } from "@/hooks/useInspectorState";
 import { useModelCatalog } from "@/hooks/useModelCatalog";
 import { useSessionRuntime } from "@/hooks/useSessionRuntime";
 import { useToolCatalog } from "@/hooks/useToolCatalog";
+import { usePluginCatalog } from "@/hooks/usePluginCatalog";
 import { useLlmProviderCatalog } from "@/hooks/useLlmProviderCatalog";
 import {
   contextSignatureParts,
   pathNodesForConversation,
 } from "@/lib/conversationContext";
+import { sessionFromApi } from "@/lib/windieMappers";
+import { writeSelectedSessionId } from "@/lib/sessionState";
+import { sessionLocation } from "@/lib/sessionLocation";
 
 const WindieCtx = createContext(null);
 
@@ -59,6 +65,7 @@ function latestAssistantTotalTokens(pathNodes) {
 }
 
 export function WindieProvider({ children }) {
+  const navigate = useNavigate();
   const {
     theme,
     contextPreviewOpen,
@@ -85,7 +92,7 @@ export function WindieProvider({ children }) {
     updateConversation,
     refreshConversations,
     loadConversation,
-    selectConversation,
+    selectConversation: selectConversationRuntime,
   } = useConversationStore({ setApiError, setApprovals });
 
   const activeModelId = activeConv?.model || null;
@@ -125,6 +132,22 @@ export function WindieProvider({ children }) {
   } = useToolCatalog({
     onError: handleResourceError,
   });
+  const refreshPluginRuntime = useCallback(
+    () => Promise.all([refreshProviderInstallations(), refreshAvailableTools()]),
+    [refreshAvailableTools, refreshProviderInstallations]
+  );
+  const {
+    plugins,
+    loading: pluginsLoading,
+    loaded: pluginsLoaded,
+    pendingPluginId,
+    refreshPlugins,
+    installPlugin,
+    uninstallPlugin,
+  } = usePluginCatalog({
+    onError: handleResourceError,
+    onPluginChanged: refreshPluginRuntime,
+  });
   const {
     providers: llmProviders,
     keysByProvider: llmProviderKeysByName,
@@ -154,15 +177,82 @@ export function WindieProvider({ children }) {
     pendingAssistant,
     streaming,
     refreshSessions,
-    selectSession,
-    resolvePathHead,
-    sendMessage,
-    continueConversation,
+    selectSession: selectSessionRuntime,
+    resolvePathHead: resolvePathHeadRuntime,
+    sendMessage: sendMessageRuntime,
+    continueConversation: continueConversationRuntime,
     stopStreaming,
-    deleteSession,
+    deleteSession: deleteSessionRuntime,
+    setSessionKeepAwake,
     approveToolCall,
     denyToolCall,
   } = sessionRuntime;
+  const selectSession = useCallback(
+    async (sessionId, suppliedSession = null) => {
+      const session = await selectSessionRuntime(sessionId, suppliedSession);
+      if (session) navigate(sessionLocation(session.id));
+      return session;
+    },
+    [navigate, selectSessionRuntime]
+  );
+  const resolvePathHead = useCallback(
+    async (headMessageId) => {
+      const resolution = await resolvePathHeadRuntime(headMessageId);
+      if (resolution.kind === "existing") navigate(sessionLocation(resolution.session.id));
+      return resolution;
+    },
+    [navigate, resolvePathHeadRuntime]
+  );
+  const sendMessage = useCallback(
+    async (...args) => {
+      const result = await sendMessageRuntime(...args);
+      const session = getSelectedSession();
+      if (session) navigate(sessionLocation(session.id));
+      return result;
+    },
+    [getSelectedSession, navigate, sendMessageRuntime]
+  );
+  const continueConversation = useCallback(
+    async (...args) => {
+      const result = await continueConversationRuntime(...args);
+      const session = getSelectedSession();
+      if (session) navigate(sessionLocation(session.id));
+      return result;
+    },
+    [continueConversationRuntime, getSelectedSession, navigate]
+  );
+  const deleteSession = useCallback(
+    async (sessionId) => {
+      const deleted = await deleteSessionRuntime(sessionId);
+      if (!deleted) return deleted;
+      const replacement = getSelectedSession();
+      navigate(replacement ? sessionLocation(replacement.id) : "/", { replace: true });
+      return deleted;
+    },
+    [deleteSessionRuntime, getSelectedSession, navigate]
+  );
+  const openSession = useCallback(
+    async (sessionId) => {
+      const session = sessionFromApi(await getSessionApi(sessionId));
+      if (!session) throw new Error("the requested session is unavailable");
+
+      writeSelectedSessionId(session.conversationId, session.id);
+      if (session.conversationId === activeConvId) {
+        await selectSession(session.id, session);
+      } else {
+        selectConversationRuntime(session.conversationId);
+      }
+      return session;
+    },
+    [activeConvId, selectConversationRuntime, selectSession]
+  );
+  const selectConversation = useCallback(
+    (conversationId) => {
+      navigate("/");
+      selectConversationRuntime(conversationId);
+    },
+    [navigate, selectConversationRuntime]
+  );
   const selectedPathNodes = useMemo(
     () => pathNodesToNode(activeConv, sessionRuntime.selectedPathHead),
     [activeConv, sessionRuntime.selectedPathHead]
@@ -455,6 +545,10 @@ export function WindieProvider({ children }) {
     toolProviderStatuses,
     providerInstallations,
     providerInstallationsLoading,
+    plugins,
+    pluginsLoading,
+    pluginsLoaded,
+    pendingPluginId,
     llmProviders,
     llmProviderKeysByName,
     llmProvidersLoading,
@@ -477,7 +571,9 @@ export function WindieProvider({ children }) {
     createConversation,
     selectConversation,
     selectSession,
+    openSession,
     deleteSession,
+    setSessionKeepAwake,
     renameConversation,
     deleteConversation,
     setSystemPrompt,
@@ -494,7 +590,11 @@ export function WindieProvider({ children }) {
     disableProvider,
     repairProvider,
     uninstallProvider,
+    refreshAvailableTools,
     refreshProviderInstallations,
+    refreshPlugins,
+    installPlugin,
+    uninstallPlugin,
     truncateAfter,
     removeMessage,
     editMessage,

@@ -18,20 +18,22 @@ export function contextSignatureParts(conversation, modelId, pathNodesOverride =
     return { pathSignature: "", setupSignature: "", fullSignature: "" };
   }
   const pathNodes = pathNodesOverride || pathNodesForConversation(conversation);
-  const path = pathNodes.map((node) => ({
-    id: node.id,
-    role: node.message.role,
-    parts: node.message.parts || [],
-    metadata: {
-      toolCalls: node.message.metadata?.toolCalls || [],
-      toolCallId: node.message.metadata?.toolCallId || null,
-    },
-  }));
+  const runtimeMessages = conversation.modelContext || [];
+  const path = runtimeMessages.length > 0
+    ? runtimeMessages
+    : pathNodes.map((node) => ({
+        id: node.id,
+        role: node.message.role,
+        parts: node.message.parts || [],
+        metadata: {
+          toolCalls: node.message.metadata?.toolCalls || [],
+          toolCallId: node.message.metadata?.toolCallId || null,
+        },
+      }));
   const setup = {
     conversationId: conversation.id,
     model: modelId || conversation.model || null,
-    systemPrompt: conversation.systemPrompt || "",
-    toolSchemas: (conversation.toolSchemas || []).map((tool) => ({
+    toolSchemas: (conversation.modelToolSchemas || conversation.toolSchemas || []).map((tool) => ({
       name: tool.name,
       description: tool.description,
       parameters: tool.parameters,

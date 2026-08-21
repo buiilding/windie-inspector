@@ -9,7 +9,7 @@ import { useWindie } from "@/context/WindieContext";
 export default function Windie() {
   const { createConversation } = useWindie();
   const [activeSidebarView, setActiveSidebarView] = useState(null);
-  const [selectedExtensionId, setSelectedExtensionId] = useState(null);
+  const [selectedPluginId, setSelectedPluginId] = useState(null);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     try {
       const value = Number(window.localStorage.getItem("windie.sidebarWidth"));
@@ -21,7 +21,7 @@ export default function Windie() {
 
   const navigateToSidebarView = useCallback((view) => {
     setActiveSidebarView(view);
-    setSelectedExtensionId(null);
+    setSelectedPluginId(null);
   }, []);
 
   const handleActivityBarViewChange = useCallback((view) => {
@@ -77,16 +77,16 @@ export default function Windie() {
             activeView={activeSidebarView}
             sidebarWidth={sidebarWidth}
             onResizeStart={startSidebarResize}
-            onSelectExtension={setSelectedExtensionId}
-            onSelectConversation={() => setSelectedExtensionId(null)}
+            onSelectExtension={setSelectedPluginId}
+            onSelectConversation={() => setSelectedPluginId(null)}
             onNavigate={navigateToSidebarView}
-            selectedExtensionId={selectedExtensionId}
+            selectedExtensionId={selectedPluginId}
           />
         )}
         <div className="flex-1 min-w-0 relative flex">
           <div className="flex-1 min-w-0 relative flex flex-col min-h-0">
-            {selectedExtensionId ? (
-              <ExtensionDetailPage providerId={selectedExtensionId} />
+            {selectedPluginId ? (
+              <ExtensionDetailPage pluginId={selectedPluginId} />
             ) : (
               <ChatPanel
                 onNavigate={navigateToSidebarView}

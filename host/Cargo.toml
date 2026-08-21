@@ -9,4 +9,4 @@ axum = "0.8"
 mime_guess = "2"
 rust-embed = { version = "8", features = ["include-exclude"] }
 serde_json = "1"
-tokio = { version = "1", features = ["macros", "net", "rt-multi-thread", "signal", "time"] }
+tokio = { version = "1", features = ["macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
