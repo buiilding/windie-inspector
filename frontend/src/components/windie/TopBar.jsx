@@ -1,5 +1,6 @@
 import { useWindie } from "@/context/WindieContext";
-import { Sun, Moon } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { Sun, Moon, LogOut } from "lucide-react";
 
 function formatTokenCount(value) {
   if (value == null) return "--";
@@ -17,6 +18,7 @@ export default function TopBar() {
     setTheme,
     tokenMeter,
   } = useWindie();
+  const { session, signOut } = useAuth();
 
   return (
     <header
@@ -45,6 +47,21 @@ export default function TopBar() {
           {formatTokenCount(tokenMeter?.used)} / {formatTokenCount(tokenMeter?.max)}
         </span>
       </div>
+
+      <span
+        className="max-w-40 truncate text-muted-foreground"
+        title={session.user.email}
+      >
+        {session.user.email}
+      </span>
+
+      <button
+        onClick={() => void signOut()}
+        aria-label="sign out"
+        className="pointer-events-auto flex items-center justify-center size-7 border border-border hover:bg-surface-hover transition-colors"
+      >
+        <LogOut className="size-3.5" strokeWidth={1.75} />
+      </button>
 
       <button
         data-testid="topbar-toggle-theme"

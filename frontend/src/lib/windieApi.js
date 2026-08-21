@@ -2,6 +2,38 @@ const API_BASE =
   (typeof window !== "undefined" && window.__WINDIE_API_URL__) ||
   process.env.REACT_APP_WINDIE_API_URL ||
   "http://127.0.0.1:8787";
+
+let accessToken = null;
+
+/**
+ * Sets the short-lived hosted-account token attached to every local API call.
+ * The token is held only in page memory; Supabase remains responsible for its
+ * persisted session and refresh lifecycle.
+ */
+export function setApiAccessToken(nextAccessToken) {
+  accessToken = nextAccessToken || null;
+}
+
+/** Returns the authorization header shared by JSON, image, and SSE requests. */
+export function apiAuthorizationHeaders() {
+  return accessToken && isLoopbackApi()
+    ? { Authorization: `Bearer ${accessToken}` }
+    : {};
+}
+
+/** Prevents a build-time endpoint override from sending an account token away from this computer. */
+function isLoopbackApi() {
+  try {
+    const url = new URL(API_BASE);
+    return (
+      url.protocol === "http:" &&
+      ["127.0.0.1", "localhost", "[::1]", "::1"].includes(url.hostname)
+    );
+  } catch {
+    return false;
+  }
+}
+
 function parseApiBody(text) {
   if (!text) return null;
   try {
@@ -17,6 +49,7 @@ export async function apiRequest(path, options = {}) {
     ...fetchOptions,
     headers: {
       "Content-Type": "application/json",
+      ...apiAuthorizationHeaders(),
       ...optionHeaders,
     },
   });
@@ -35,6 +68,7 @@ export async function fetchImageAsset(conversationId, assetId) {
   const response = await fetch(
     `${API_BASE}/api/conversations/${encodeURIComponent(conversationId)}/images/${encodeURIComponent(assetId)}`,
     {
+      headers: apiAuthorizationHeaders(),
     }
   );
 
@@ -45,6 +79,19 @@ export async function fetchImageAsset(conversationId, assetId) {
   }
 
   return response.blob();
+}
+
+/** Reads whether this signed-in account may use the local Windie runtime. */
+export function getRuntimeAccess() {
+  return apiRequest("/api/runtime/access");
+}
+
+/** Records the user's explicit approval to pair this account and local runtime. */
+export function pairRuntimeAccess() {
+  return apiRequest("/api/runtime/access", {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
 }
 
 export async function listModels() {
