@@ -97,6 +97,19 @@ describe("providerInstallationsFromApi", () => {
     expect(provider.launch.type).toBe("streamable_http");
     expect(provider.secrets[0].required).toBe(false);
   });
+
+  test("uses the extension kind instead of the nested MCP transport kind", () => {
+    const [provider] = providerInstallationsFromApi([
+      {
+        kind: "plugin",
+        plugin: { plugin_id: "cua-driver" },
+        manifest: { provider_id: "cua-driver", kind: "mcp" },
+      },
+    ]);
+
+    expect(provider.kind).toBe("plugin");
+    expect(provider.plugin.plugin_id).toBe("cua-driver");
+  });
 });
 
 describe("upsertConversationMessage", () => {

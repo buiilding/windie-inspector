@@ -40,7 +40,10 @@ export function providerInstallationsFromApi(body) {
     author: provider.manifest?.author || provider.manifest?.provider_id || "Unknown author",
     description: provider.manifest?.description || "",
     readmeMarkdown: provider.manifest?.readme_markdown || "",
-    kind: provider.manifest?.kind || "mcp",
+    // `kind` is the extension kind. The nested manifest kind still describes
+    // the provider transport and may therefore remain `mcp` for a plugin.
+    kind: provider.kind || (provider.plugin ? "plugin" : provider.manifest?.kind || "mcp"),
+    plugin: provider.plugin || null,
     transport: provider.manifest?.transport || "stdio",
     runtime: provider.manifest?.runtime || "native",
     package: provider.manifest?.package || null,
@@ -163,6 +166,12 @@ export function sessionFromApi(session) {
 
 export function conversationFromInspection(report, fallback) {
   const nodes = {};
+  const modelContext = report.model_context || [];
+  const runtimeSystemPrompt = modelContext
+    .filter((message) => message.role === "system")
+    .map((message) => message.content || "")
+    .filter(Boolean)
+    .join("\n\n");
 
   for (const message of report.messages || []) {
     if (!message.id) continue;
@@ -205,7 +214,8 @@ export function conversationFromInspection(report, fallback) {
     tags: fallback?.tags || [],
     messageCount: Object.keys(nodes).length,
     toolSchemas: (report.tool_schemas || []).map(toolSchemaFromApi),
-    modelContext: report.model_context || [],
+    modelContext,
+    runtimeSystemPrompt,
     modelToolSchemas: (report.model_tool_schemas || []).map(toolSchemaFromApi),
     latestCompaction: report.latest_compaction || null,
     paths: (report.paths || []).map((path) => ({

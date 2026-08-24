@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useWindie } from "@/context/WindieContext";
+import RuntimeSystemContext from "@/components/windie/RuntimeSystemContext";
 
 function Section({ title, children, defaultOpen = true }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -138,6 +139,10 @@ export default function SettingsPanel() {
         >
           save
         </button>
+        <RuntimeSystemContext
+          content={activeConv.runtimeSystemPrompt}
+          testId="settings-runtime-system-context"
+        />
       </Section>
 
       <Section title="tool access">
@@ -180,7 +185,7 @@ export default function SettingsPanel() {
         </p>
       </Section>
 
-      <Section title={`available tool schemas · ${availableToolsLoading ? "loading" : availableToolSchemas.length}`} defaultOpen={false}>
+      <Section title={`available tool schemas · ${availableToolsLoading ? "loading" : availableToolSchemas.length}`}>
         <div className="space-y-2">
           {groupedTools.map(({ providerId, tools }) => {
             const collapsed = !expandedProviders.has(providerId);
