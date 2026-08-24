@@ -147,6 +147,8 @@ export function sessionFromApi(session) {
     reasoning: session.reasoning || null,
     error: session.error || null,
     keepAwake: Boolean(session.keep_awake),
+    idleWakeupInterval: session.idle_wakeup_interval || "thirty_minutes",
+    nextIdleWakeupAt: session.next_idle_wakeup_at ?? null,
     queued: Boolean(session.queued),
     queueDepth: session.queue_depth || 0,
     queueId: session.queue_id || null,

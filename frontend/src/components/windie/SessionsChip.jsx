@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown, MoreHorizontal } from "lucide-react";
+import { Check, ChevronDown, MoreHorizontal, Play } from "lucide-react";
 import { useWindie } from "@/context/WindieContext";
 import FloatingDeleteMenu, { floatingMenuPosition } from "@/components/windie/FloatingDeleteMenu";
 import { Switch } from "@/components/ui/switch";
@@ -22,6 +22,24 @@ function statusDot(status) {
   return "bg-muted-foreground";
 }
 
+const WAKEUP_INTERVAL_OPTIONS = [
+  { value: "fifteen_minutes", label: "15m" },
+  { value: "thirty_minutes", label: "30m" },
+  { value: "one_hour", label: "1h" },
+  { value: "two_hours", label: "2h" },
+];
+
+function wakeupCountdown(nextWakeupAt, now) {
+  if (!nextWakeupAt) return "schedule unavailable";
+  const remainingMs = nextWakeupAt - now;
+  if (remainingMs <= 0) return "due now";
+  const remainingMinutes = Math.ceil(remainingMs / 60_000);
+  if (remainingMinutes < 60) return `in ${remainingMinutes}m`;
+  const hours = Math.floor(remainingMinutes / 60);
+  const minutes = remainingMinutes % 60;
+  return minutes ? `in ${hours}h ${minutes}m` : `in ${hours}h`;
+}
+
 export default function SessionsChip({ dropUp = false }) {
   const {
     activeConv,
@@ -32,9 +50,11 @@ export default function SessionsChip({ dropUp = false }) {
     selectSession,
     deleteSession,
     setSessionKeepAwake,
+    wakeSessionNow,
   } = useWindie();
   const [open, setOpen] = useState(false);
   const [menuSession, setMenuSession] = useState(null);
+  const [now, setNow] = useState(() => Date.now());
   const rootRef = useRef(null);
 
   const sessions = useMemo(() => {
@@ -61,6 +81,13 @@ export default function SessionsChip({ dropUp = false }) {
       document.removeEventListener("mousedown", handleClick);
       document.removeEventListener("keydown", handleKey);
     };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    setNow(Date.now());
+    const timer = window.setInterval(() => setNow(Date.now()), 1_000);
+    return () => window.clearInterval(timer);
   }, [open]);
 
   if (!activeConv || sessions.length === 0) return null;
@@ -110,7 +137,7 @@ export default function SessionsChip({ dropUp = false }) {
               sessions.map((session) => (
                 <div
                   key={session.id}
-                  className="relative w-full px-3 py-2 font-mono text-[11px] flex items-center gap-1 hover:bg-surface-hover"
+                  className="relative w-full px-3 py-2 font-mono text-[11px] flex flex-wrap items-center gap-1 hover:bg-surface-hover"
                 >
                   <button
                     type="button"
@@ -147,13 +174,62 @@ export default function SessionsChip({ dropUp = false }) {
                     <Switch
                       checked={session.keepAwake}
                       onCheckedChange={(keepAwake) => {
-                        setSessionKeepAwake(session.id, keepAwake).catch(() => {});
+                        setSessionKeepAwake(
+                          session.id,
+                          keepAwake,
+                          session.idleWakeupInterval
+                        ).catch(() => {});
                       }}
                       aria-label={`keep session ${shortId(session.id)} awake`}
                       data-testid={`topbar-session-keep-awake-${shortId(session.id)}`}
                       className="scale-75 origin-right"
                     />
                   </label>
+                  {session.keepAwake && (
+                    <div
+                      className="basis-full ml-5 mt-1 flex items-center gap-1.5 text-[10px] text-muted-foreground"
+                      onMouseDown={(event) => event.stopPropagation()}
+                    >
+                      <span className="shrink-0">every</span>
+                      <select
+                        value={session.idleWakeupInterval}
+                        aria-label={`wakeup interval for session ${shortId(session.id)}`}
+                        data-testid={`topbar-session-wakeup-interval-${shortId(session.id)}`}
+                        onChange={(event) => {
+                          setSessionKeepAwake(
+                            session.id,
+                            true,
+                            event.target.value
+                          ).catch(() => {});
+                        }}
+                        className="h-5 border border-border bg-background px-1 font-mono text-[10px] text-foreground"
+                      >
+                        {WAKEUP_INTERVAL_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                      <span
+                        className="min-w-0 flex-1 truncate"
+                        title={session.nextIdleWakeupAt ? new Date(session.nextIdleWakeupAt).toLocaleString() : ""}
+                      >
+                        next {wakeupCountdown(session.nextIdleWakeupAt, now)}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={session.status === "running" || session.status === "waiting_for_approval"}
+                        aria-label={`wake session ${shortId(session.id)} now`}
+                        data-testid={`topbar-session-wake-now-${shortId(session.id)}`}
+                        title="Wake now: runs the model without adding a user message"
+                        onClick={() => wakeSessionNow(session.id).catch(() => {})}
+                        className="shrink-0 flex items-center gap-1 border border-border px-1.5 py-0.5 text-foreground hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <Play className="size-2.5" fill="currentColor" />
+                        wake now
+                      </button>
+                    </div>
+                  )}
                   <button
                     type="button"
                     data-testid={`topbar-session-menu-${shortId(session.id)}`}
