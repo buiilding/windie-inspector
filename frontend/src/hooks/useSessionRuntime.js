@@ -11,6 +11,7 @@ import {
   resolveSessionAtHead as resolveSessionAtHeadApi,
   setSessionKeepAwake as setSessionKeepAwakeApi,
   stopSession as stopSessionApi,
+  wakeSessionNow as wakeSessionNowApi,
 } from "@/lib/windieApi";
 import { currentSessionHead } from "@/lib/sessionTarget";
 import { projectSessionEvent } from "@/lib/sessionEvent";
@@ -438,11 +439,11 @@ export function useSessionRuntime({
 
   const getSelectedSession = useCallback(() => selectedSessionRef.current, []);
 
-  const setSessionKeepAwake = useCallback(async (sessionId, keepAwake) => {
+  const setSessionKeepAwake = useCallback(async (sessionId, keepAwake, idleWakeupInterval = null) => {
     if (!sessionId) return null;
     try {
       const session = sessionFromApi(
-        await setSessionKeepAwakeApi(sessionId, keepAwake)
+        await setSessionKeepAwakeApi(sessionId, keepAwake, idleWakeupInterval)
       );
       return rememberSession(session);
     } catch (error) {
@@ -450,6 +451,22 @@ export function useSessionRuntime({
       throw error;
     }
   }, [rememberSession, setApiError]);
+
+  const wakeSessionNow = useCallback(async (sessionId) => {
+    if (!sessionId) return null;
+    try {
+      const session = sessionFromApi(await wakeSessionNowApi(sessionId));
+      rememberSession(session);
+      startTurn(session);
+      subscribeToSession(session);
+      setApiError(null);
+      return session;
+    } catch (error) {
+      setApiError(error.message);
+      toast.error(error.message);
+      throw error;
+    }
+  }, [rememberSession, setApiError, startTurn, subscribeToSession]);
 
   return {
     sessionsById,
@@ -474,5 +491,6 @@ export function useSessionRuntime({
     approveToolCall,
     denyToolCall,
     setSessionKeepAwake,
+    wakeSessionNow,
   };
 }

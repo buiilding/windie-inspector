@@ -213,10 +213,21 @@ export async function stopSession(sessionId) {
   });
 }
 
-export async function setSessionKeepAwake(sessionId, keepAwake) {
+export async function setSessionKeepAwake(sessionId, keepAwake, idleWakeupInterval = null) {
   return apiRequest(`/api/sessions/${encodeURIComponent(sessionId)}/keep-awake`, {
     method: "PATCH",
-    body: JSON.stringify({ keep_awake: Boolean(keepAwake) }),
+    body: JSON.stringify({
+      keep_awake: Boolean(keepAwake),
+      idle_wakeup_interval: idleWakeupInterval,
+    }),
+  });
+}
+
+/** Explicitly starts one session wakeup without adding a user message. */
+export async function wakeSessionNow(sessionId) {
+  return apiRequest(`/api/sessions/${encodeURIComponent(sessionId)}/wakeup`, {
+    method: "POST",
+    body: JSON.stringify({}),
   });
 }
 
