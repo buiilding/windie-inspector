@@ -20,6 +20,18 @@ test("projects authoritative session and saved message snapshots", () => {
   expect(projection.isDelta).toBe(false);
 });
 
+test("projects runtime-generated wakeup messages as saved transcript messages", () => {
+  const projection = projectSessionEvent(session, {
+    type: "wakeup_message_saved",
+    session,
+    message: { id: "wakeup-1", role: "user", content: "Windie wakeup" },
+  });
+
+  expect(projection.message.role).toBe("user");
+  expect(projection.isSavedMessage).toBe(true);
+  expect(projection.isDelta).toBe(false);
+});
+
 test("keeps delta events transient and uses the current session", () => {
   const current = { id: "session-1", status: "running" };
   const projection = projectSessionEvent(current, {

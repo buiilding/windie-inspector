@@ -7,6 +7,7 @@ const DELTA_EVENT_TYPES = new Set([
 ]);
 
 const SAVED_MESSAGE_EVENT_TYPES = new Set([
+  "wakeup_message_saved",
   "assistant_message_saved",
   "tool_result_saved",
 ]);

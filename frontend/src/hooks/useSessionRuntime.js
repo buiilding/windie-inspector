@@ -457,6 +457,10 @@ export function useSessionRuntime({
     try {
       const session = sessionFromApi(await wakeSessionNowApi(sessionId));
       rememberSession(session);
+      await loadConversation(session.conversationId, {
+        headMessageId: session.currentHeadMessageId,
+        countTokens: false,
+      });
       startTurn(session);
       subscribeToSession(session);
       setApiError(null);
@@ -466,7 +470,7 @@ export function useSessionRuntime({
       toast.error(error.message);
       throw error;
     }
-  }, [rememberSession, setApiError, startTurn, subscribeToSession]);
+  }, [loadConversation, rememberSession, setApiError, startTurn, subscribeToSession]);
 
   return {
     sessionsById,

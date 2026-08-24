@@ -223,7 +223,7 @@ export async function setSessionKeepAwake(sessionId, keepAwake, idleWakeupInterv
   });
 }
 
-/** Explicitly starts one session wakeup without adding a user message. */
+/** Explicitly saves a runtime-generated user wakeup message and starts its session. */
 export async function wakeSessionNow(sessionId) {
   return apiRequest(`/api/sessions/${encodeURIComponent(sessionId)}/wakeup`, {
     method: "POST",
