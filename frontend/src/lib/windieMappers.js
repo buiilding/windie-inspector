@@ -311,6 +311,7 @@ function metadataFromApi(metadata) {
   if (!metadata) return null;
 
   return {
+    wakeup: metadata.wakeup || null,
     toolCalls: (metadata.tool_calls || []).map((call) => ({
       id: call.id,
       name: call.function?.name || "",
