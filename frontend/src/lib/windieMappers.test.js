@@ -125,7 +125,7 @@ describe("upsertConversationMessage", () => {
         role: "assistant",
         content: "saved answer",
         parts: [{ type: "text", text: "saved answer" }],
-        metadata: null,
+        metadata: { wakeup: { kind: "idle" } },
       },
       "openai/test",
       true
@@ -135,5 +135,6 @@ describe("upsertConversationMessage", () => {
     expect(updated.nodes.root.childrenIds).toEqual(["assistant-1"]);
     expect(updated.selectedPath).toEqual(["root", "assistant-1"]);
     expect(updated.nodes["assistant-1"].message.parts[0].text).toBe("saved answer");
+    expect(updated.nodes["assistant-1"].message.metadata.wakeup).toEqual({ kind: "idle" });
   });
 });

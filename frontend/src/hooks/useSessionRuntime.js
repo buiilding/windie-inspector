@@ -94,7 +94,7 @@ export function useSessionRuntime({
         selectedSessionRef.current?.id === currentSession.id;
 
       if (projection.type === "input_queued") return;
-      if (projection.type === "input_started") {
+      if (projection.type === "input_started" || projection.type === "wakeup_message_saved") {
         if (projection.message) {
           applySessionMessage(currentSession, projection.message, selected);
         }

@@ -24,14 +24,15 @@ import { toast } from "sonner";
 
 const MESSAGE_PREVIEW_LENGTH = 500;
 
-function RoleBadge({ role }) {
+function RoleBadge({ role, wakeup }) {
   const token = ROLE_TOKENS[role] || ROLE_TOKENS.user;
+  const label = wakeup ? "WAKEUP" : token.label;
   return (
     <span
       className={`font-mono text-[10px] font-bold tracking-widest ${token.color}`}
-      data-testid={`msg-role-badge-${role}`}
+      data-testid={wakeup ? "msg-wakeup-badge" : `msg-role-badge-${role}`}
     >
-      [{token.label}]
+      [{label}]
     </span>
   );
 }
@@ -302,6 +303,7 @@ export default function MessageRow({ node, index, isLast }) {
 
   const isSelected = selectedNodeId === node.id;
   const role = node.message.role;
+  const wakeup = node.message.metadata?.wakeup || null;
   const isSystem = role === "system";
   const isUserMessage = role === "user";
   const messageTint = role === "user"
@@ -371,7 +373,7 @@ export default function MessageRow({ node, index, isLast }) {
       )}
       <div className="flex items-baseline gap-3">
         <div className="w-16 shrink-0 pt-0.5">
-          <RoleBadge role={role} />
+          <RoleBadge role={role} wakeup={wakeup} />
           {hasSiblings && (
             <div className="mt-1 font-mono text-[10px] text-[hsl(var(--accent))]">
               {siblings.indexOf(node.id) + 1}/{siblings.length}
@@ -478,6 +480,11 @@ export default function MessageRow({ node, index, isLast }) {
                 </div>
               )}
 
+              {wakeup && (
+                <div className="mt-3 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                  {wakeup.kind === "idle" ? "automatic idle wakeup" : "system wakeup"}
+                </div>
+              )}
               <MetadataLanes metadata={node.message.metadata} />
             </>
           )}
