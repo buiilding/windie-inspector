@@ -5,6 +5,8 @@ import { supabase } from "@/lib/supabase";
 import { setApiAccessToken } from "@/lib/windieApi";
 import { Button } from "@/components/ui/button";
 import RuntimeAccessGate from "@/components/auth/RuntimeAccessGate";
+import LocalAccessGate from "@/components/auth/LocalAccessGate";
+import { isLocalInspectorOrigin } from "@/lib/localInspectorAccess";
 
 function AuthFrame({ children }) {
   return (
@@ -57,7 +59,7 @@ function MissingConfiguration() {
  * after Supabase restores or creates a hosted account session, so unauthenticated
  * visitors never load the local-runtime client.
  */
-export default function AuthGate({ children }) {
+function HostedAuthGate({ children }) {
   const [session, setSession] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSigningIn, setIsSigningIn] = useState(false);
@@ -174,4 +176,12 @@ export default function AuthGate({ children }) {
       </p>
     </AuthFrame>
   );
+}
+
+/** Selects local capability access on loopback and hosted identity everywhere else. */
+export default function AuthGate({ children }) {
+  if (isLocalInspectorOrigin()) {
+    return <LocalAccessGate>{children}</LocalAccessGate>;
+  }
+  return <HostedAuthGate>{children}</HostedAuthGate>;
 }
