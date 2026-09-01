@@ -287,13 +287,15 @@ function ProviderManagement({ provider, keys, keysLoaded, keysError, onRefresh, 
   );
 }
 
-export default function LlmProvidersPanel({ onModelsChanged }) {
+export default function LlmProvidersPanel({ onModelsChanged: onModelsChangedProp }) {
   const {
     llmProviders: providers,
     llmProviderKeysByName: keysByProvider,
     llmProvidersLoading: loading,
     refreshLlmProviders: refresh,
+    refreshModels,
   } = useWindie();
+  const onModelsChanged = onModelsChangedProp || refreshModels;
   const [selected, setSelected] = useState([]);
 
   const toggle = (name) =>
