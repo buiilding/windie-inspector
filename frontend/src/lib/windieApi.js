@@ -3,7 +3,8 @@ const API_BASE =
   process.env.REACT_APP_WINDIE_API_URL ||
   "http://127.0.0.1:8787";
 
-let accessToken = null;
+let apiCredential = null;
+let localExchange = null;
 
 /**
  * Sets the short-lived hosted-account token attached to every local API call.
@@ -11,14 +12,23 @@ let accessToken = null;
  * persisted session and refresh lifecycle.
  */
 export function setApiAccessToken(nextAccessToken) {
-  accessToken = nextAccessToken || null;
+  apiCredential = nextAccessToken
+    ? { kind: "hosted", token: nextAccessToken }
+    : null;
+}
+
+/** Sets the volatile token minted by the local Windie API for this browser tab. */
+export function setLocalApiAccessToken(nextAccessToken) {
+  apiCredential = nextAccessToken
+    ? { kind: "local", token: nextAccessToken }
+    : null;
 }
 
 /** Returns the authorization header shared by JSON, image, and SSE requests. */
 export function apiAuthorizationHeaders() {
-  return accessToken && isLoopbackApi()
-    ? { Authorization: `Bearer ${accessToken}` }
-    : {};
+  if (!apiCredential || !isLoopbackApi()) return {};
+  const scheme = apiCredential.kind === "local" ? "WindieLocal" : "Bearer";
+  return { Authorization: `${scheme} ${apiCredential.token}` };
 }
 
 /** Prevents a build-time endpoint override from sending an account token away from this computer. */
@@ -62,6 +72,20 @@ export async function apiRequest(path, options = {}) {
   }
 
   return body;
+}
+
+/** Exchanges one URL-fragment launch code exactly once, including under React Strict Mode. */
+export function exchangeLocalAccessCode(code) {
+  if (!localExchange || localExchange.code !== code) {
+    localExchange = {
+      code,
+      promise: apiRequest("/api/runtime/local-access/exchange", {
+        method: "POST",
+        body: JSON.stringify({ code }),
+      }),
+    };
+  }
+  return localExchange.promise;
 }
 
 export async function fetchImageAsset(conversationId, assetId) {
