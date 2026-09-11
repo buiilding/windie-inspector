@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ShieldCheck } from "lucide-react";
-import { AuthProvider } from "@/context/AuthContext";
+import { AUTH_KIND, AuthProvider } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { setApiAccessToken } from "@/lib/windieApi";
 import { Button } from "@/components/ui/button";
@@ -143,7 +143,7 @@ function HostedAuthGate({ children }) {
 
   if (session) {
     return (
-      <AuthProvider value={{ session, signOut }}>
+      <AuthProvider value={{ kind: AUTH_KIND.HOSTED, session, signOut }}>
         <RuntimeAccessGate>{children}</RuntimeAccessGate>
       </AuthProvider>
     );
@@ -181,7 +181,11 @@ function HostedAuthGate({ children }) {
 /** Selects local capability access on loopback and hosted identity everywhere else. */
 export default function AuthGate({ children }) {
   if (isLocalInspectorOrigin()) {
-    return <LocalAccessGate>{children}</LocalAccessGate>;
+    return (
+      <AuthProvider value={{ kind: AUTH_KIND.LOCAL }}>
+        <LocalAccessGate>{children}</LocalAccessGate>
+      </AuthProvider>
+    );
   }
   return <HostedAuthGate>{children}</HostedAuthGate>;
 }
