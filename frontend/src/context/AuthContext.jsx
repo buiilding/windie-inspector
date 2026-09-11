@@ -6,12 +6,13 @@ const AuthContext = createContext(null);
 export const AUTH_KIND = Object.freeze({
   LOCAL: "local",
   HOSTED: "hosted",
+  PUBLIC_DEMO: "public_demo",
 });
 
 /**
- * Provides the Inspector's explicit local-capability or hosted-account access
- * mode to presentation components. Access tokens remain owned by the
- * surrounding gates and are never stored in this presentation context.
+ * Provides the Inspector's explicit local-capability, hosted-account, or
+ * anonymous public-demo access mode to presentation components. Access tokens
+ * remain owned by the surrounding gates and are never stored here.
  */
 export function AuthProvider({ value, children }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
