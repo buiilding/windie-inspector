@@ -1,5 +1,5 @@
 import { useWindie } from "@/context/WindieContext";
-import { useAuth } from "@/context/AuthContext";
+import { AUTH_KIND, useAuth } from "@/context/AuthContext";
 import { Sun, Moon, LogOut } from "lucide-react";
 
 function formatTokenCount(value) {
@@ -18,7 +18,8 @@ export default function TopBar() {
     setTheme,
     tokenMeter,
   } = useWindie();
-  const { session, signOut } = useAuth();
+  const auth = useAuth();
+  const isHosted = auth.kind === AUTH_KIND.HOSTED;
 
   return (
     <header
@@ -48,20 +49,24 @@ export default function TopBar() {
         </span>
       </div>
 
-      <span
-        className="max-w-40 truncate text-muted-foreground"
-        title={session.user.email}
-      >
-        {session.user.email}
-      </span>
+      {isHosted ? (
+        <>
+          <span
+            className="max-w-40 truncate text-muted-foreground"
+            title={auth.session.user.email}
+          >
+            {auth.session.user.email}
+          </span>
 
-      <button
-        onClick={() => void signOut()}
-        aria-label="sign out"
-        className="pointer-events-auto flex items-center justify-center size-7 border border-border hover:bg-surface-hover transition-colors"
-      >
-        <LogOut className="size-3.5" strokeWidth={1.75} />
-      </button>
+          <button
+            onClick={() => void auth.signOut()}
+            aria-label="sign out"
+            className="pointer-events-auto flex items-center justify-center size-7 border border-border hover:bg-surface-hover transition-colors"
+          >
+            <LogOut className="size-3.5" strokeWidth={1.75} />
+          </button>
+        </>
+      ) : null}
 
       <button
         data-testid="topbar-toggle-theme"
