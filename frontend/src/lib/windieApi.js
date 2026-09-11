@@ -1,7 +1,4 @@
-const API_BASE =
-  (typeof window !== "undefined" && window.__WINDIE_API_URL__) ||
-  process.env.REACT_APP_WINDIE_API_URL ||
-  "http://127.0.0.1:8787";
+import { WINDIE_API_BASE } from "@/lib/windieEndpoint";
 
 let apiCredential = null;
 let localExchange = null;
@@ -34,7 +31,7 @@ export function apiAuthorizationHeaders() {
 /** Prevents a build-time endpoint override from sending an account token away from this computer. */
 function isLoopbackApi() {
   try {
-    const url = new URL(API_BASE);
+    const url = new URL(WINDIE_API_BASE);
     return (
       url.protocol === "http:" &&
       ["127.0.0.1", "localhost", "[::1]", "::1"].includes(url.hostname)
@@ -55,7 +52,7 @@ function parseApiBody(text) {
 
 export async function apiRequest(path, options = {}) {
   const { headers: optionHeaders = {}, ...fetchOptions } = options;
-  const response = await fetch(`${API_BASE}${path}`, {
+  const response = await fetch(`${WINDIE_API_BASE}${path}`, {
     ...fetchOptions,
     headers: {
       "Content-Type": "application/json",
@@ -90,7 +87,7 @@ export function exchangeLocalAccessCode(code) {
 
 export async function fetchImageAsset(conversationId, assetId) {
   const response = await fetch(
-    `${API_BASE}/api/conversations/${encodeURIComponent(conversationId)}/images/${encodeURIComponent(assetId)}`,
+    `${WINDIE_API_BASE}/api/conversations/${encodeURIComponent(conversationId)}/images/${encodeURIComponent(assetId)}`,
     {
       headers: apiAuthorizationHeaders(),
     }

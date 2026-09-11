@@ -3,12 +3,19 @@ import AuthGate from "./AuthGate";
 import TopBar from "@/components/windie/TopBar";
 import { AUTH_KIND, AuthProvider } from "@/context/AuthContext";
 
+const mockIsLocalInspectorOrigin = jest.fn();
+const mockIsPublicDemoInspectorOrigin = jest.fn();
+
 jest.mock("@/components/auth/LocalAccessGate", () => function LocalAccessGate({ children }) {
   return children;
 });
 
 jest.mock("@/lib/localInspectorAccess", () => ({
-  isLocalInspectorOrigin: () => true,
+  isLocalInspectorOrigin: () => mockIsLocalInspectorOrigin(),
+}));
+
+jest.mock("@/lib/windieEndpoint", () => ({
+  isPublicDemoInspectorOrigin: () => mockIsPublicDemoInspectorOrigin(),
 }));
 
 jest.mock("@/context/WindieContext", () => ({
@@ -20,7 +27,14 @@ jest.mock("@/context/WindieContext", () => ({
   }),
 }));
 
+beforeEach(() => {
+  mockIsLocalInspectorOrigin.mockReturnValue(false);
+  mockIsPublicDemoInspectorOrigin.mockReturnValue(false);
+});
+
 test("local access provides context without hosted account controls", () => {
+  mockIsLocalInspectorOrigin.mockReturnValue(true);
+
   const markup = renderToStaticMarkup(
     <AuthGate>
       <TopBar />
@@ -28,6 +42,20 @@ test("local access provides context without hosted account controls", () => {
   );
 
   expect(markup).toContain('aria-label="toggle theme"');
+  expect(markup).not.toContain('aria-label="sign out"');
+});
+
+test("the public demo mounts without hosted account controls", () => {
+  mockIsPublicDemoInspectorOrigin.mockReturnValue(true);
+
+  const markup = renderToStaticMarkup(
+    <AuthGate>
+      <TopBar />
+    </AuthGate>
+  );
+
+  expect(markup).toContain('aria-label="toggle theme"');
+  expect(markup).not.toContain("Continue with Google");
   expect(markup).not.toContain('aria-label="sign out"');
 });
 

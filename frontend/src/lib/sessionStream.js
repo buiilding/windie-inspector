@@ -1,9 +1,6 @@
 import { apiAuthorizationHeaders } from "@/lib/windieApi";
+import { WINDIE_API_BASE } from "@/lib/windieEndpoint";
 
-const API_BASE =
-  (typeof window !== "undefined" && window.__WINDIE_API_URL__) ||
-  process.env.REACT_APP_WINDIE_API_URL ||
-  "http://127.0.0.1:8787";
 function parseApiBody(text) {
   if (!text) return null;
   try {
@@ -39,7 +36,7 @@ function parseSseBlock(block) {
 }
 
 async function streamSse(path, fallbackError, onEvent, options = {}) {
-  const response = await fetch(`${API_BASE}${path}`, {
+  const response = await fetch(`${WINDIE_API_BASE}${path}`, {
     signal: options.signal,
     headers: apiAuthorizationHeaders(),
   });

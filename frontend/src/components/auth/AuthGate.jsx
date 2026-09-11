@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import RuntimeAccessGate from "@/components/auth/RuntimeAccessGate";
 import LocalAccessGate from "@/components/auth/LocalAccessGate";
 import { isLocalInspectorOrigin } from "@/lib/localInspectorAccess";
+import { isPublicDemoInspectorOrigin } from "@/lib/windieEndpoint";
 
 function AuthFrame({ children }) {
   return (
@@ -178,12 +179,19 @@ function HostedAuthGate({ children }) {
   );
 }
 
-/** Selects local capability access on loopback and hosted identity everywhere else. */
+/** Selects local capability, anonymous demo, or hosted-account access by origin. */
 export default function AuthGate({ children }) {
   if (isLocalInspectorOrigin()) {
     return (
       <AuthProvider value={{ kind: AUTH_KIND.LOCAL }}>
         <LocalAccessGate>{children}</LocalAccessGate>
+      </AuthProvider>
+    );
+  }
+  if (isPublicDemoInspectorOrigin()) {
+    return (
+      <AuthProvider value={{ kind: AUTH_KIND.PUBLIC_DEMO }}>
+        {children}
       </AuthProvider>
     );
   }
