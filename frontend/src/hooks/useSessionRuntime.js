@@ -9,9 +9,7 @@ import {
   listSessions,
   queryConversation as queryConversationApi,
   resolveSessionAtHead as resolveSessionAtHeadApi,
-  setSessionKeepAwake as setSessionKeepAwakeApi,
   stopSession as stopSessionApi,
-  wakeSessionNow as wakeSessionNowApi,
 } from "@/lib/windieApi";
 import { currentSessionHead } from "@/lib/sessionTarget";
 import { projectSessionEvent } from "@/lib/sessionEvent";
@@ -94,7 +92,7 @@ export function useSessionRuntime({
         selectedSessionRef.current?.id === currentSession.id;
 
       if (projection.type === "input_queued") return;
-      if (projection.type === "input_started" || projection.type === "wakeup_message_saved") {
+      if (projection.type === "input_started") {
         if (projection.message) {
           applySessionMessage(currentSession, projection.message, selected);
         }
@@ -439,35 +437,6 @@ export function useSessionRuntime({
 
   const getSelectedSession = useCallback(() => selectedSessionRef.current, []);
 
-  const setSessionKeepAwake = useCallback(async (sessionId, keepAwake, idleWakeupInterval = null) => {
-    if (!sessionId) return null;
-    try {
-      const session = sessionFromApi(
-        await setSessionKeepAwakeApi(sessionId, keepAwake, idleWakeupInterval)
-      );
-      return rememberSession(session);
-    } catch (error) {
-      setApiError(error.message);
-      throw error;
-    }
-  }, [rememberSession, setApiError]);
-
-  const wakeSessionNow = useCallback(async (sessionId) => {
-    if (!sessionId) return null;
-    try {
-      const session = sessionFromApi(await wakeSessionNowApi(sessionId));
-      rememberSession(session);
-      startTurn(session);
-      subscribeToSession(session);
-      setApiError(null);
-      return session;
-    } catch (error) {
-      setApiError(error.message);
-      toast.error(error.message);
-      throw error;
-    }
-  }, [rememberSession, setApiError, startTurn, subscribeToSession]);
-
   return {
     sessionsById,
     selectedSession,
@@ -490,7 +459,5 @@ export function useSessionRuntime({
     deleteSession,
     approveToolCall,
     denyToolCall,
-    setSessionKeepAwake,
-    wakeSessionNow,
   };
 }
