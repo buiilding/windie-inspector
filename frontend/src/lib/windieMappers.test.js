@@ -97,19 +97,6 @@ describe("providerInstallationsFromApi", () => {
     expect(provider.launch.type).toBe("streamable_http");
     expect(provider.secrets[0].required).toBe(false);
   });
-
-  test("uses the extension kind instead of the nested MCP transport kind", () => {
-    const [provider] = providerInstallationsFromApi([
-      {
-        kind: "plugin",
-        plugin: { plugin_id: "cua-driver" },
-        manifest: { provider_id: "cua-driver", kind: "mcp" },
-      },
-    ]);
-
-    expect(provider.kind).toBe("plugin");
-    expect(provider.plugin.plugin_id).toBe("cua-driver");
-  });
 });
 
 describe("upsertConversationMessage", () => {
@@ -138,7 +125,7 @@ describe("upsertConversationMessage", () => {
         role: "assistant",
         content: "saved answer",
         parts: [{ type: "text", text: "saved answer" }],
-        metadata: { wakeup: { kind: "idle" } },
+        metadata: null,
       },
       "openai/test",
       true
@@ -148,6 +135,5 @@ describe("upsertConversationMessage", () => {
     expect(updated.nodes.root.childrenIds).toEqual(["assistant-1"]);
     expect(updated.selectedPath).toEqual(["root", "assistant-1"]);
     expect(updated.nodes["assistant-1"].message.parts[0].text).toBe("saved answer");
-    expect(updated.nodes["assistant-1"].message.metadata.wakeup).toEqual({ kind: "idle" });
   });
 });

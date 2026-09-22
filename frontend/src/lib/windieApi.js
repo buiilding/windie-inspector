@@ -1,46 +1,7 @@
-import { WINDIE_API_BASE } from "@/lib/windieEndpoint";
-
-let apiCredential = null;
-let localExchange = null;
-
-/**
- * Sets the short-lived hosted-account token attached to every local API call.
- * The token is held only in page memory; Supabase remains responsible for its
- * persisted session and refresh lifecycle.
- */
-export function setApiAccessToken(nextAccessToken) {
-  apiCredential = nextAccessToken
-    ? { kind: "hosted", token: nextAccessToken }
-    : null;
-}
-
-/** Sets the volatile token minted by the local Windie API for this browser tab. */
-export function setLocalApiAccessToken(nextAccessToken) {
-  apiCredential = nextAccessToken
-    ? { kind: "local", token: nextAccessToken }
-    : null;
-}
-
-/** Returns the authorization header shared by JSON, image, and SSE requests. */
-export function apiAuthorizationHeaders() {
-  if (!apiCredential || !isLoopbackApi()) return {};
-  const scheme = apiCredential.kind === "local" ? "WindieLocal" : "Bearer";
-  return { Authorization: `${scheme} ${apiCredential.token}` };
-}
-
-/** Prevents a build-time endpoint override from sending an account token away from this computer. */
-function isLoopbackApi() {
-  try {
-    const url = new URL(WINDIE_API_BASE);
-    return (
-      url.protocol === "http:" &&
-      ["127.0.0.1", "localhost", "[::1]", "::1"].includes(url.hostname)
-    );
-  } catch {
-    return false;
-  }
-}
-
+const API_BASE =
+  (typeof window !== "undefined" && window.__WINDIE_API_URL__) ||
+  process.env.REACT_APP_WINDIE_API_URL ||
+  "http://127.0.0.1:8787";
 function parseApiBody(text) {
   if (!text) return null;
   try {
@@ -52,11 +13,10 @@ function parseApiBody(text) {
 
 export async function apiRequest(path, options = {}) {
   const { headers: optionHeaders = {}, ...fetchOptions } = options;
-  const response = await fetch(`${WINDIE_API_BASE}${path}`, {
+  const response = await fetch(`${API_BASE}${path}`, {
     ...fetchOptions,
     headers: {
       "Content-Type": "application/json",
-      ...apiAuthorizationHeaders(),
       ...optionHeaders,
     },
   });
@@ -71,25 +31,10 @@ export async function apiRequest(path, options = {}) {
   return body;
 }
 
-/** Exchanges one URL-fragment launch code exactly once, including under React Strict Mode. */
-export function exchangeLocalAccessCode(code) {
-  if (!localExchange || localExchange.code !== code) {
-    localExchange = {
-      code,
-      promise: apiRequest("/api/runtime/local-access/exchange", {
-        method: "POST",
-        body: JSON.stringify({ code }),
-      }),
-    };
-  }
-  return localExchange.promise;
-}
-
 export async function fetchImageAsset(conversationId, assetId) {
   const response = await fetch(
-    `${WINDIE_API_BASE}/api/conversations/${encodeURIComponent(conversationId)}/images/${encodeURIComponent(assetId)}`,
+    `${API_BASE}/api/conversations/${encodeURIComponent(conversationId)}/images/${encodeURIComponent(assetId)}`,
     {
-      headers: apiAuthorizationHeaders(),
     }
   );
 
@@ -100,19 +45,6 @@ export async function fetchImageAsset(conversationId, assetId) {
   }
 
   return response.blob();
-}
-
-/** Reads whether this signed-in account may use the local Windie runtime. */
-export function getRuntimeAccess() {
-  return apiRequest("/api/runtime/access");
-}
-
-/** Records the user's explicit approval to pair this account and local runtime. */
-export function pairRuntimeAccess() {
-  return apiRequest("/api/runtime/access", {
-    method: "POST",
-    body: JSON.stringify({}),
-  });
 }
 
 export async function listModels() {
@@ -216,7 +148,6 @@ export async function continueSession(sessionId) {
   });
 }
 
-/** Loads one authoritative durable session for direct Inspector navigation. */
 export async function getSession(sessionId) {
   return apiRequest(`/api/sessions/${encodeURIComponent(sessionId)}`);
 }
@@ -229,24 +160,6 @@ export async function deleteSession(sessionId) {
 
 export async function stopSession(sessionId) {
   return apiRequest(`/api/sessions/${encodeURIComponent(sessionId)}/stop`, {
-    method: "POST",
-    body: JSON.stringify({}),
-  });
-}
-
-export async function setSessionKeepAwake(sessionId, keepAwake, idleWakeupInterval = null) {
-  return apiRequest(`/api/sessions/${encodeURIComponent(sessionId)}/keep-awake`, {
-    method: "PATCH",
-    body: JSON.stringify({
-      keep_awake: Boolean(keepAwake),
-      idle_wakeup_interval: idleWakeupInterval,
-    }),
-  });
-}
-
-/** Explicitly starts one session wakeup without adding a user message. */
-export async function wakeSessionNow(sessionId) {
-  return apiRequest(`/api/sessions/${encodeURIComponent(sessionId)}/wakeup`, {
     method: "POST",
     body: JSON.stringify({}),
   });

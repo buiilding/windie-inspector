@@ -40,10 +40,7 @@ export function providerInstallationsFromApi(body) {
     author: provider.manifest?.author || provider.manifest?.provider_id || "Unknown author",
     description: provider.manifest?.description || "",
     readmeMarkdown: provider.manifest?.readme_markdown || "",
-    // `kind` is the extension kind. The nested manifest kind still describes
-    // the provider transport and may therefore remain `mcp` for a plugin.
-    kind: provider.kind || (provider.plugin ? "plugin" : provider.manifest?.kind || "mcp"),
-    plugin: provider.plugin || null,
+    kind: provider.manifest?.kind || "mcp",
     transport: provider.manifest?.transport || "stdio",
     runtime: provider.manifest?.runtime || "native",
     package: provider.manifest?.package || null,
@@ -149,9 +146,6 @@ export function sessionFromApi(session) {
     model: session.model,
     reasoning: session.reasoning || null,
     error: session.error || null,
-    keepAwake: Boolean(session.keep_awake),
-    idleWakeupInterval: session.idle_wakeup_interval || "thirty_minutes",
-    nextIdleWakeupAt: session.next_idle_wakeup_at ?? null,
     queued: Boolean(session.queued),
     queueDepth: session.queue_depth || 0,
     queueId: session.queue_id || null,
@@ -166,12 +160,6 @@ export function sessionFromApi(session) {
 
 export function conversationFromInspection(report, fallback) {
   const nodes = {};
-  const modelContext = report.model_context || [];
-  const runtimeSystemPrompt = modelContext
-    .filter((message) => message.role === "system")
-    .map((message) => message.content || "")
-    .filter(Boolean)
-    .join("\n\n");
 
   for (const message of report.messages || []) {
     if (!message.id) continue;
@@ -214,8 +202,7 @@ export function conversationFromInspection(report, fallback) {
     tags: fallback?.tags || [],
     messageCount: Object.keys(nodes).length,
     toolSchemas: (report.tool_schemas || []).map(toolSchemaFromApi),
-    modelContext,
-    runtimeSystemPrompt,
+    modelContext: report.model_context || [],
     modelToolSchemas: (report.model_tool_schemas || []).map(toolSchemaFromApi),
     latestCompaction: report.latest_compaction || null,
     paths: (report.paths || []).map((path) => ({
@@ -311,7 +298,6 @@ function metadataFromApi(metadata) {
   if (!metadata) return null;
 
   return {
-    wakeup: metadata.wakeup || null,
     toolCalls: (metadata.tool_calls || []).map((call) => ({
       id: call.id,
       name: call.function?.name || "",
